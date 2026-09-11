@@ -48,3 +48,19 @@ console.log('\ncounts:', count(`SELECT
 console.log('多经收入 shops in ledger:', db.prepare('SELECT shop_no, brand, amounts FROM ledger_row WHERE shop_no LIKE \'QT-%\' OR brand LIKE \'%艾力斯特%\' LIMIT 6').all())
 console.log('sample merchants:', db.prepare('SELECT shop_no, name, brand, floor FROM merchant WHERE shop_no IN (?, ?, ?, ?)').all('5F-5008', '1F-1052', '5002A,5002B', '3033'))
 console.log('pending transfers:', db.prepare('SELECT payer_name, amount, remark FROM "transaction" WHERE status = \'pending\' ORDER BY txn_time').all())
+
+// ---- step 3: claim engine on the same data ----
+const { runClaims, listPending, confirmClaim } = await import('../src/provider/claim/engine.ts')
+const run = runClaims(db)
+console.log('\nclaims run:', { bankReviewed: run.bankReviewed, bankAuto: run.bankAuto, parkingAuto: run.parkingAuto, wechatElectricity: run.wechatElectricity, wechatParking: run.wechatParking, posAuto: run.posAuto, pending: run.pending.length, unlabelledPos: run.unlabelledPos.reduce((s, u) => s + u.count, 0) })
+for (const a of run.autoBooked) console.log('  AUTO', a.payerName, (a.amount / 100).toFixed(2), '→', a.shopNo, a.name, '|', a.booked, '|', a.confidence)
+for (const p of run.pending.filter(p => p.kind === 'bank')) console.log('  PENDING', p.date, p.payerName, (p.amount / 100).toFixed(2), JSON.stringify(p.remark), '→', p.suggestions.map(s => `${s.shopNo} ${s.name}(${s.brand}) ${s.confidence} ${s.reason}`).join(' | ') || 'none')
+console.log('brand lookups:', db.prepare('SELECT shop_no, name, brand FROM merchant WHERE brand LIKE \'%弹珠%\' OR brand LIKE \'%哈乐%\' OR name LIKE \'%欣飞%\' OR brand LIKE \'%君优%\' OR name LIKE \'%君优%\' OR brand LIKE \'%飞科%\' OR brand LIKE \'%李宁%\'').all())
+const tu = run.pending.find(p => p.payerName === '涂小兰')
+if (tu !== undefined) {
+  const c = confirmClaim(db, tu.itemId, tu.suggestions[0]?.shopNo ?? '5002A,5002B', undefined, 'user')
+  console.log('\nconfirm 涂小兰 →', c.merchant?.shopNo, c.merchant?.name, '|', c.booked, '| learned', c.learned)
+  console.log('payer_mapping:', db.prepare('SELECT payer_name, merchant_id, confirmed FROM payer_mapping').all())
+}
+console.log('after confirm pending:', listPending(db).pending.length)
+console.log('allocation by fee:', db.prepare('SELECT fee_type, COUNT(*) n, SUM(amount_incl_tax) cents FROM allocation GROUP BY fee_type ORDER BY cents DESC').all())

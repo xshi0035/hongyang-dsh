@@ -20,6 +20,7 @@ import { HyFinanceService } from './service/finance-service.ts'
 import * as settingsPlugin from './settings/plugin.ts'
 import * as skillsPlugin from './skills/plugin.ts'
 import * as toolsPlugin from './tools/plugin.ts'
+import * as webPlugin from './webServer/plugin.ts'
 
 export { Config, HY_FINANCE_NS, resolveConfig } from './config.ts'
 export type { ResolvedConfig } from './config.ts'
@@ -29,6 +30,9 @@ export * from './service/identifiers.ts'
 export { FinanceError, type FinanceErrorCode } from './service/errors.ts'
 export type { ImportOutcome } from './provider/import/index.ts'
 export type { SplitResult, SettlementMatch } from './provider/split/settlement.ts'
+export type { ClaimRunResult, ConfirmResult, PendingItem, UnlabelledPos } from './provider/claim/engine.ts'
+export type { Split } from './provider/claim/allocate.ts'
+export type * from './shared/wire.ts'
 export * from './rules/fee-types.ts'
 export * from './rules/tax.ts'
 export * from './rules/summary.ts'
@@ -56,6 +60,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(toolsPlugin)
   ctx.plugin(skillsPlugin)
   ctx.plugin(settingsPlugin, config)
+  ctx.plugin(webPlugin)
   ctx.inject(['systemPrompt'], (promptCtx) => {
     promptCtx.systemPrompt.section({
       name: 'hy-finance:identity',

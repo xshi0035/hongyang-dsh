@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path'
 import { FinanceError } from '../../service/errors.ts'
 
 /** Physical layout version stored in `PRAGMA user_version`. */
-export const HY_FINANCE_SCHEMA_VERSION = 1
+export const HY_FINANCE_SCHEMA_VERSION = 2
 
 /** `PRAGMA application_id` marking a file as this package's database. */
 const APPLICATION_ID = 0x48594649 // "HYFI"
@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS allocation (
   transaction_id TEXT NOT NULL REFERENCES "transaction"(id),
   platform_txn_id TEXT REFERENCES platform_txn(id),
   merchant_id TEXT REFERENCES merchant(id),
+  receivable_id TEXT REFERENCES receivable(id),
   fee_type TEXT NOT NULL,
   period_start TEXT,
   period_end TEXT,
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS allocation (
 ) STRICT;
 CREATE INDEX IF NOT EXISTS allocation_txn ON allocation(transaction_id);
 CREATE INDEX IF NOT EXISTS allocation_merchant ON allocation(merchant_id, fee_type);
+CREATE INDEX IF NOT EXISTS allocation_receivable ON allocation(receivable_id);
 
 CREATE TABLE IF NOT EXISTS ledger_row (
   id TEXT PRIMARY KEY,

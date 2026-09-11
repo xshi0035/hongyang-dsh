@@ -42,6 +42,22 @@ interface ParsedRow {
   raw: string
 }
 
+/**
+ * One spelling for a shop number: `5F-5002A、5002B` and `5F-5002A,5F-5002B`
+ * both become `5F-5002A,5F-5002B` (a floor prefix on any part spreads to the
+ * parts that lack one; parts are sorted).
+ * @param raw - the sheet cell.
+ * @param floor - the row's floor cell (`1F`, `5F`, `1F多经`), used as the prefix when no part carries one.
+ * @returns the canonical shop number.
+ */
+export function canonicalShopNo(raw: string, floor = ''): string {
+  const parts = raw.split(/[,，、;；]/).map(p => p.trim().toUpperCase()).filter(p => p.length > 0)
+  const floorPrefix = /^(\d+F)/.exec(floor.trim().toUpperCase())?.[1]
+  const prefix = parts.map(p => /^(\d+F-)/.exec(p)?.[1]).find(p => p !== undefined) ?? (floorPrefix === undefined ? undefined : `${floorPrefix}-`)
+  const fixed = parts.map(p => prefix !== undefined && !/^\d+F-/.test(p) && /^\d{3,4}[A-Z]{0,2}$/.test(p) ? `${prefix}${p}` : p)
+  return [...new Set(fixed)].sort().join(',')
+}
+
 function feeTypeOf(label: string, unknown: Set<string>): FeeType {
   const found = feeTypesFromText(label)
   const type = found[0]
@@ -56,7 +72,7 @@ function parseRentSheet(rows: readonly Row[], unknown: Set<string>): ParsedRow[]
   const { index, columns } = findHeader(rows, ['账期', '铺位号/点位号', '商户名称', '应交费项', '应收金额（含税）'])
   const out: ParsedRow[] = []
   for (const row of rows.slice(index + 1)) {
-    const shopNo = text(row, columns, '铺位号/点位号')
+    const shopNo = canonicalShopNo(text(row, columns, '铺位号/点位号'), text(row, columns, '楼层'))
     const due = toCents(text(row, columns, '应收金额（含税）'))
     if (shopNo === '' || due === undefined) continue
     const period = isoDate(row[columns.get('账期') ?? -1] ?? null)
@@ -87,7 +103,7 @@ function parseUtilitySheet(rows: readonly Row[], unknown: Set<string>): ParsedRo
   const { index, columns } = findHeader(rows, ['账期', '铺位号/点位号', '收费项目', '应交费项', '应收金额', '已收金额合计', '未收金额'])
   const out: ParsedRow[] = []
   for (const row of rows.slice(index + 1)) {
-    const shopNo = text(row, columns, '铺位号/点位号')
+    const shopNo = canonicalShopNo(text(row, columns, '铺位号/点位号'), text(row, columns, '楼层'))
     const due = toCents(text(row, columns, '应收金额'))
     if (shopNo === '' || due === undefined) continue
     const period = isoDate(row[columns.get('账期') ?? -1] ?? null)

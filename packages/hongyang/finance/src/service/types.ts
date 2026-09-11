@@ -66,7 +66,7 @@ export const SOURCE_LABELS: Readonly<Record<Source, string>> = {
 }
 
 /** Counterparty class of a bank credit, decided from the payer name. */
-export type Channel = 'tenpay' | 'unionpay' | 'parking' | 'douyin' | 'transfer'
+export type Channel = 'tenpay' | 'unionpay' | 'parking' | 'douyin' | 'internal' | 'transfer'
 
 /** Claim state of a transaction. */
 export type TransactionStatus =
@@ -128,6 +128,8 @@ export interface Allocation {
   readonly transactionId: TransactionId
   readonly platformTxnId: PlatformTxnId | undefined
   readonly merchantId: MerchantId | undefined
+  /** The receivable line this slice settles, when derived from one. */
+  readonly receivableId: ReceivableId | undefined
   readonly feeType: FeeType
   readonly periodStart: string | undefined
   readonly periodEnd: string | undefined

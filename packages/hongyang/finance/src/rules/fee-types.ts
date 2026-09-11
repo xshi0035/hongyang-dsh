@@ -82,7 +82,7 @@ export const FEE_TYPE_ALIASES: ReadonlyArray<readonly [string, FeeType]> = [
   ['证件工本费', 'cert'], ['工本费', 'cert'],
   ['装修押金', 'decor_deposit'], ['保证金', 'guarantee'], ['押金', 'guarantee'],
   ['诚意金', 'earnest'], ['暂收款', 'unclaimed'],
-  ['停车费', 'parking'], ['消防泄水费', 'fire_water'], ['购券', 'coupon'],
+  ['停车费', 'parking'], ['停车', 'parking'], ['月卡', 'parking'], ['季卡', 'parking'], ['消防泄水费', 'fire_water'], ['购券', 'coupon'],
   ['多经收入-仓库', 'multi_warehouse'], ['仓库', 'multi_warehouse'],
   ['多经收入-广告位', 'multi_ad'], ['广告位', 'multi_ad'],
   ['固定点位', 'fixed_spot'], ['临时点位', 'temp_spot'], ['场地费', 'temp_spot'],

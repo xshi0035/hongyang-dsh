@@ -20,6 +20,7 @@ const SHEET_SOURCES: Readonly<Record<string, Source>> = { '建行2038': 'bank203
 
 /** Decide the counterparty class from the payer name. */
 export function channelOf(payerName: string): Channel {
+  if (payerName.includes('衡阳诚远')) return 'internal'
   if (payerName.includes('财付通')) return 'tenpay'
   if (payerName.includes('银联商务')) return 'unionpay'
   if (payerName.includes('停车')) return 'parking'
@@ -78,9 +79,9 @@ export function importBankCcb(db: DatabaseSync, wb: Workbook): BankImportResult 
   return transaction(db, () => {
     const batch = insertBatch(db, 'bank_ccb', wb.file, wb.sha256, pending.length)
     let inserted = 0
-    const byChannel: Record<Channel, number> = { tenpay: 0, unionpay: 0, parking: 0, douyin: 0, transfer: 0 }
+    const byChannel: Record<Channel, number> = { tenpay: 0, unionpay: 0, parking: 0, douyin: 0, internal: 0, transfer: 0 }
     for (const t of pending) {
-      const status: Transaction['status'] = t.channel === 'douyin' ? 'ignored' : t.status
+      const status: Transaction['status'] = t.channel === 'douyin' || t.channel === 'internal' ? 'ignored' : t.status
       if (insertTransaction(db, { ...t, batchId: batch.id, status })) {
         inserted++
         byChannel[t.channel]++

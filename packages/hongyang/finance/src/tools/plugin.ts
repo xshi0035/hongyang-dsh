@@ -6,6 +6,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
+import { financeClaimTool } from './definitions/claim.ts'
 import { financeImportTool } from './definitions/import.ts'
 import { financeStatusTool } from './definitions/status.ts'
 
@@ -21,4 +22,5 @@ export const inject = ['tools', 'hyFinance']
 export function apply(ctx: Context): void {
   ctx.tools.register(financeStatusTool(ctx.hyFinance))
   ctx.tools.register(financeImportTool(ctx.hyFinance))
+  ctx.tools.register(financeClaimTool(ctx.hyFinance))
 }

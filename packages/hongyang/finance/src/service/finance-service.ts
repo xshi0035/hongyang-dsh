@@ -13,7 +13,10 @@ import { resolveConfig, type Config, type ResolvedConfig } from '../config.ts'
 import { openFinanceDatabase } from '../provider/db/schema.ts'
 import { importFile, type ImportOutcome } from '../provider/import/index.ts'
 import { splitSettlements, type SplitResult } from '../provider/split/settlement.ts'
-import type { FinanceCounts, ImportKind } from './types.ts'
+import { confirmClaim, learnPayer, listPending, runClaims, type ClaimRunResult, type ConfirmResult, type PendingItem, type UnlabelledPos } from '../provider/claim/engine.ts'
+import type { Split } from '../provider/claim/allocate.ts'
+import { listMerchants } from '../provider/db/repo.ts'
+import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -85,6 +88,37 @@ export class HyFinanceService extends Service {
    */
   splitSettlements(): SplitResult {
     return splitSettlements(this.db())
+  }
+
+  /** Run the claim engine over everything unbooked. */
+  runClaims(): ClaimRunResult {
+    return runClaims(this.db())
+  }
+
+  /** The pending queue with suggestions. */
+  listPending(): { pending: PendingItem[]; unlabelledPos: UnlabelledPos[] } {
+    return listPending(this.db())
+  }
+
+  /**
+   * Book one queued item to a shop.
+   * @param itemId - `txn:<id>` or `ptx:<id>`.
+   * @param shopNo - shop number; empty books suspense.
+   * @param splits - explicit splits in cents.
+   * @param origin - who confirmed.
+   */
+  confirmClaim(itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin): ConfirmResult {
+    return confirmClaim(this.db(), itemId, shopNo, splits, origin)
+  }
+
+  /** Remember a payer → shop mapping. */
+  learnPayer(payerName: string, shopNo: string): Merchant {
+    return learnPayer(this.db(), payerName, shopNo)
+  }
+
+  /** Every merchant, for pickers. */
+  merchants(): Merchant[] {
+    return listMerchants(this.db())
   }
 
   /**

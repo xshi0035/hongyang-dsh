@@ -53,7 +53,7 @@ function describe(outcome: ImportOutcome, file: string): ImportToolResult {
       const c = r.byChannel
       return {
         ...base, rows: r.inserted, ...(settlement === undefined ? {} : { settlement }),
-        summary: `建行流水：${r.sheets.join('、')}，收入 ${String(r.credits)} 笔，新增 ${String(r.inserted)} 笔（重复 ${String(r.duplicates)}）。渠道：财付通 ${String(c.tenpay)}、银联商务 ${String(c.unionpay)}、捷停车 ${String(c.parking)}、对公/个人转账 ${String(c.transfer)}、抖音（忽略）${String(c.douyin)}。`,
+        summary: `建行流水：${r.sheets.join('、')}，收入 ${String(r.credits)} 笔，新增 ${String(r.inserted)} 笔（重复 ${String(r.duplicates)}）。渠道：财付通 ${String(c.tenpay)}、银联商务 ${String(c.unionpay)}、捷停车 ${String(c.parking)}、对公/个人转账 ${String(c.transfer)}、抖音（忽略）${String(c.douyin)}、本公司内部划转（忽略）${String(c.internal)}。`,
       }
     }
     case 'wechat': case 'unionpay_pos': case 'recharge': {
