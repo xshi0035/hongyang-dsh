@@ -24,7 +24,7 @@
    top and settles into the frame's navy at the bottom; the seam is a soft dashed
    hairline instead of a solid rule. */
 :global(body[data-ds-dark-theme]) .sidebarCol {
-  background: linear-gradient(180deg, rgba(28, 64, 150, 0.42) 0%, rgba(12, 32, 90, 0.34) 45%, rgba(5, 14, 42, 0.30) 100%);
+  background: linear-gradient(180deg, rgba(56, 100, 200, 0.28) 0%, rgba(34, 68, 150, 0.20) 45%, rgba(20, 44, 104, 0.16) 100%);
   border-right: 1px dashed rgba(150, 176, 232, 0.26);
   backdrop-filter: blur(10px);
 }
