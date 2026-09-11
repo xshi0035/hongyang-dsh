@@ -34,6 +34,11 @@
   --dsh-composer-dock-inset: 8px;
 }
 
+/* Hongyang brand: the dark theme paints its backdrop on the app frame; stay transparent so it shows through. */
+:global(body[data-ds-dark-theme]) .root {
+  background: transparent;
+}
+
 /* 76px with its rule: the height of the Sidebar's tab strip and header row
    (ui-dockkit `.tabStrip` 38px + the pane header's 38px), so the two rules
    meet at the column edge. The rows add up to it — 10px top inset, the 30px
