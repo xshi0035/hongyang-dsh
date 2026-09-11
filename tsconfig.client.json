@@ -63,6 +63,7 @@
     { "path": "./packages/typert/registry" },
     { "path": "./packages/api/gateway/tsconfig.client.json" },
     { "path": "./packages/api/session-controller/tsconfig.client.json" },
+    { "path": "./packages/hongyang/finance/tsconfig.client.json" },
     { "path": "./packages/api/workspace-controller/tsconfig.client.json" },
     { "path": "./packages/api/remotes/tsconfig.client.json" },
     { "path": "./packages/extensions/cordis-client-runner" },

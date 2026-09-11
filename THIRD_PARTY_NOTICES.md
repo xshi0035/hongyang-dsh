@@ -69,7 +69,9 @@ External packages installed for runtime use or distributed inside the prebuilt b
 | [`e2b`](https://github.com/e2b-dev/e2b) | MIT |
 | [`electron-updater`](https://github.com/electron-userland/electron-builder) | MIT |
 | [`eventsource-parser`](https://github.com/rexxars/eventsource-parser) | MIT |
+| [`exceljs`](https://github.com/exceljs/exceljs) | MIT |
 | [`fflate`](https://github.com/101arrowz/fflate) | MIT |
+| [`iconv-lite`](https://github.com/pillarjs/iconv-lite) | MIT |
 | [`immer`](https://github.com/immerjs/immer) | MIT |
 | [`ipaddr.js`](https://github.com/whitequark/ipaddr.js) | MIT |
 | [`js-yaml`](https://github.com/nodeca/js-yaml) | MIT |
@@ -108,6 +110,7 @@ External packages installed for runtime use or distributed inside the prebuilt b
 | [`undici`](https://github.com/nodejs/undici) | MIT |
 | [`use-sync-external-store`](https://github.com/facebook/react) | MIT |
 | [`ws`](https://github.com/websockets/ws) | MIT |
+| [`xlsx`](https://github.com/SheetJS/sheetjs) | Apache-2.0 |
 | [`yaml`](https://github.com/eemeli/yaml) | ISC |
 | [`zod`](https://github.com/colinhacks/zod) | MIT |
 | [`zustand`](https://github.com/pmndrs/zustand) | MIT |

@@ -482,3 +482,11 @@
       name: '@deepseek-ai/dsh-agent-presets'
       config:
         default: standard
+
+# Hongyang finance assistant: domain service, finance_* tools, bundled skills,
+# settings section, and the browser cards (docs/hongyang/design.md).
+- insert:
+    - id: hy-finance
+      name: '@deepseek-ai/dsh-hy-finance'
+      config:
+        dbPath: ''
