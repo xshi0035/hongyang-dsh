@@ -498,6 +498,9 @@ export class LocaleRuntime {
  * Host preference may replace this provisional value after plugin activation.
  */
 function resolveInitialLocale(locales: readonly LocaleDefinition[]): LocaleId {
+  // Product default for the Hongyang deployment: Chinese whenever it is shipped; the
+  // Settings row still lets a reader switch. Browser negotiation only decides otherwise.
+  if (locales.some(locale => locale.id === 'zh')) return 'zh'
   return detectBrowserLocale(locales) ?? FALLBACK_LOCALE
 }
 

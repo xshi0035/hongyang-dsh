@@ -1,40 +1,31 @@
 import type { IconProps } from './icons/props.ts'
 
-/** Native viewBox of {@link FISH_LOGO_PATH} (width and height in user units). */
-export const FISH_LOGO_VIEWBOX = { width: 24, height: 24 }
+/** Native viewBox of the RSUN mark (portrait, user units). Traced from docs/hongyang/brand/rsun-logo.png. */
+export const FISH_LOGO_VIEWBOX = { width: 197, height: 260 }
+
+/** RSUN striped-R mark outline; the historical export name is kept so consumers need no change. */
+export const FISH_LOGO_PATH = 'M37 1L3 5L0 6L0 13L123 13L100 6L69 2L69 1ZM0 18L0 30L156 30L138 18ZM68 36L80 40L88 44L92 48L171 48L163 36ZM99 53L103 60L104 66L178 66L178 62L174 53ZM104 71L101 83L179 83L179 71ZM96 89L86 101L174 101L177 93L177 89ZM79 106L62 117L61 119L163 119L170 109L170 106ZM48 124L28 132L30 136L148 136L158 124ZM37 142L46 154L125 154L136 146L139 142ZM52 159L52 161L60 172L129 172L115 159ZM64 177L71 189L147 189L136 177ZM75 195L81 207L163 207L154 195ZM84 212L89 225L175 225L175 223L167 212ZM92 230L96 242L187 242L180 232L180 230ZM98 248L102 260L197 260L191 248Z'
+
+/** Brand red sampled from the source artwork. */
+export const HONGYANG_BRAND_RED = '#e40038'
 
 /**
- * Hongyang (RSUN) brand mark: a striped "R" in brand red. The export names keep the
- * historical fish identifiers so existing consumers (sidebar rail, hero) need no change.
- */
-export const FISH_LOGO_PATH = 'M5.7 1.0L17.7 1.0L17 3.3L5 3.3ZM5.7 4.1L9.2 4.1L8.5 6.4L5 6.4ZM15.7 4.1L19.7 4.1L19 6.4L15 6.4ZM5.7 7.2L9.2 7.2L8.5 9.5L5 9.5ZM15.7 7.2L19.7 7.2L19 9.5L15 9.5ZM5.7 10.3L18.7 10.3L18 12.6L5 12.6ZM5.7 13.4L9.2 13.4L8.5 15.7L5 15.7ZM13.2 13.4L17.2 13.4L16.5 15.7L12.5 15.7ZM5.7 16.5L9.2 16.5L8.5 18.8L5 18.8ZM14.7 16.5L18.7 16.5L18 18.8L14 18.8ZM5.7 19.6L9.2 19.6L8.5 21.9L5 21.9ZM16.2 19.6L20.7 19.6L20 21.9L15.5 21.9Z'
-
-/** Gradient id shared by every rendered mark on a page (identical definition, so duplicates are harmless). */
-const MARK_GRADIENT_ID = 'hy-mark-grad'
-
-/**
- * Render the Hongyang brand mark.
- * @param props.size - width in px (default 24; the mark is square).
+ * Render the RSUN brand mark.
+ * @param props.size - height in px (default 24; width follows the 197:260 ratio).
  * @param props.className - extra class for layout placement.
  * @returns the logo svg (aria-hidden; pair with the wordmark for accessibility).
  */
 export function FishLogo({ size = 24, className }: IconProps) {
   return (
     <svg
-      width={size}
+      width={(size * FISH_LOGO_VIEWBOX.width) / FISH_LOGO_VIEWBOX.height}
       height={size}
       className={className}
       viewBox={`0 0 ${FISH_LOGO_VIEWBOX.width} ${FISH_LOGO_VIEWBOX.height}`}
       fill="none"
       aria-hidden="true"
     >
-      <defs>
-        <linearGradient id={MARK_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ff3b5c" />
-          <stop offset="1" stopColor="#c40020" />
-        </linearGradient>
-      </defs>
-      <path id="hy-mark" d={FISH_LOGO_PATH} fill={`url(#${MARK_GRADIENT_ID})`} />
+      <path id="hy-mark" d={FISH_LOGO_PATH} fill={HONGYANG_BRAND_RED} />
     </svg>
   )
 }
