@@ -11,13 +11,22 @@
 }
 
 /* Hongyang brand (dark theme): the client deck's backdrop — a diagonal navy wash,
-   a soft glow in the upper left, and the oversized RSUN mark bleeding off the
-   right edge. Sidebar and cards stay translucent enough to read the wash through. */
+   a soft glow in the upper left, and the oversized RSUN mark, softened by a
+   gaussian blur, bleeding off the right edge. */
 :global(body[data-ds-dark-theme]) .frame {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 197 260%22%3E%3Cpath d=%22M37 1L3 5L0 6L0 13L123 13L100 6L69 2L69 1ZM0 18L0 30L156 30L138 18ZM68 36L80 40L88 44L92 48L171 48L163 36ZM99 53L103 60L104 66L178 66L178 62L174 53ZM104 71L101 83L179 83L179 71ZM96 89L86 101L174 101L177 93L177 89ZM79 106L62 117L61 119L163 119L170 109L170 106ZM48 124L28 132L30 136L148 136L158 124ZM37 142L46 154L125 154L136 146L139 142ZM52 159L52 161L60 172L129 172L115 159ZM64 177L71 189L147 189L136 177ZM75 195L81 207L163 207L154 195ZM84 212L89 225L175 225L175 223L167 212ZM92 230L96 242L187 242L180 232L180 230ZM98 248L102 260L197 260L191 248Z%22 fill=%22rgb(150,40,120)%22 fill-opacity=%220.42%22/%3E%3C/svg%3E") no-repeat right -9% center / auto 118%,
+    url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-24 -24 245 308%22%3E%3Cfilter id=%22b%22 x=%22-20%25%22 y=%22-20%25%22 width=%22140%25%22 height=%22140%25%22%3E%3CfeGaussianBlur stdDeviation=%223.2%22/%3E%3C/filter%3E%3Cpath d=%22M37 1L3 5L0 6L0 13L123 13L100 6L69 2L69 1ZM0 18L0 30L156 30L138 18ZM68 36L80 40L88 44L92 48L171 48L163 36ZM99 53L103 60L104 66L178 66L178 62L174 53ZM104 71L101 83L179 83L179 71ZM96 89L86 101L174 101L177 93L177 89ZM79 106L62 117L61 119L163 119L170 109L170 106ZM48 124L28 132L30 136L148 136L158 124ZM37 142L46 154L125 154L136 146L139 142ZM52 159L52 161L60 172L129 172L115 159ZM64 177L71 189L147 189L136 177ZM75 195L81 207L163 207L154 195ZM84 212L89 225L175 225L175 223L167 212ZM92 230L96 242L187 242L180 232L180 230ZM98 248L102 260L197 260L191 248Z%22 fill=%22rgb(150,40,120)%22 fill-opacity=%220.30%22 filter=%22url(%23b)%22/%3E%3C/svg%3E") no-repeat right -12% center / auto 124%,
     radial-gradient(ellipse 60% 50% at 12% 8%, rgba(46, 96, 214, 0.38), transparent 70%),
     linear-gradient(118deg, rgb(18, 50, 128) 0%, rgb(11, 32, 92) 42%, rgb(6, 18, 56) 100%);
+}
+
+/* Sidebar (dark theme): a translucent vertical wash that picks up the glow at the
+   top and settles into the frame's navy at the bottom; the seam is a soft dashed
+   hairline instead of a solid rule. */
+:global(body[data-ds-dark-theme]) .sidebarCol {
+  background: linear-gradient(180deg, rgba(28, 64, 150, 0.42) 0%, rgba(12, 32, 90, 0.34) 45%, rgba(5, 14, 42, 0.30) 100%);
+  border-right: 1px dashed rgba(150, 176, 232, 0.26);
+  backdrop-filter: blur(10px);
 }
 
 /* Dragging writes widths at pointer cadence; easing them would detach the
