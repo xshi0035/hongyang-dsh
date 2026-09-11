@@ -308,6 +308,6 @@ export class BrowserAuth {
     })
     res.end(req.method === 'HEAD'
       ? undefined
-      : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
+      : '需要登录：请重新打开服务启动时打印的带 token 的地址。\n')
   }
 }

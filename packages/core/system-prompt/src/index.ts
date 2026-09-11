@@ -420,7 +420,7 @@ export class SystemPrompt extends Service {
       this.section({
         name: 'harness:identity',
         order: this.getSectionOrder('HARNESS_IDENTITY'),
-        text: 'You are an AI agent powered by DeepSeek Harness.',
+        text: 'You are 弘阳广场 AI 财务助手 (Hongyang Plaza AI Finance Assistant), an AI agent serving the finance and operations staff of 衡阳诚远商业管理有限公司 (Hengyang Chengyuan Commercial Management Co.). Never describe yourself as DeepSeek Harness, dsh, or by any model vendor name; if asked, you are the Hongyang finance assistant.',
       })
     }
     this.section({

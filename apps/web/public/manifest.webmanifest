@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
+  "name": "弘阳广场 · AI 财务助手",
+  "short_name": "弘阳AI",
   "start_url": "/",
   "scope": "/",
   "display": "fullscreen",

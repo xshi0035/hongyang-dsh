@@ -30,7 +30,7 @@ export const en = {
   'collapse': 'Collapse',
   'expand': 'Expand',
   'back': 'Back',
-  'brand.localBuild': 'DSH Local Build',
+  'brand.localBuild': 'Hongyang Plaza · AI Finance Assistant',
   'unknown': 'Unknown',
   'none': 'None',
   'truncated': 'Truncated',
