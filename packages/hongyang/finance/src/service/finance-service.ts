@@ -11,7 +11,9 @@ import type { DatabaseSync } from 'node:sqlite'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { resolveConfig, type Config, type ResolvedConfig } from '../config.ts'
 import { openFinanceDatabase } from '../provider/db/schema.ts'
-import type { FinanceCounts } from './types.ts'
+import { importFile, type ImportOutcome } from '../provider/import/index.ts'
+import { splitSettlements, type SplitResult } from '../provider/split/settlement.ts'
+import type { FinanceCounts, ImportKind } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -64,6 +66,25 @@ export class HyFinanceService extends Service {
    */
   reconfigure(config: Config): void {
     this.config = resolveConfig(config)
+  }
+
+  /**
+   * Import one client file; bank and platform statements also re-run
+   * settlement splitting.
+   * @param file - absolute path.
+   * @param kind - explicit kind, or detected from the headers.
+   * @returns the import outcome.
+   */
+  importFile(file: string, kind?: ImportKind): Promise<ImportOutcome> {
+    return importFile(this.db(), file, kind)
+  }
+
+  /**
+   * Re-run settlement splitting over every pending Tenpay / UnionPay credit.
+   * @returns matched and unmatched credits.
+   */
+  splitSettlements(): SplitResult {
+    return splitSettlements(this.db())
   }
 
   /**

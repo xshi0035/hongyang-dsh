@@ -86,6 +86,8 @@ export const FEE_TYPE_ALIASES: ReadonlyArray<readonly [string, FeeType]> = [
   ['多经收入-仓库', 'multi_warehouse'], ['仓库', 'multi_warehouse'],
   ['多经收入-广告位', 'multi_ad'], ['广告位', 'multi_ad'],
   ['固定点位', 'fixed_spot'], ['临时点位', 'temp_spot'], ['场地费', 'temp_spot'],
+  // The receivable sheet's bare `多经收入` (gift machines, spot rentals) is booked under 固定点位-服务费收入 in the ledger.
+  ['多经收入', 'fixed_spot'],
   ['房租', 'rent'], ['租费', 'rent'], ['铺租', 'rent'], ['租金', 'rent'],
 ]
 

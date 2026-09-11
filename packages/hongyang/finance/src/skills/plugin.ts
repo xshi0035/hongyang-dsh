@@ -6,7 +6,9 @@
  * @module @deepseek-ai/dsh-hy-finance/skills/plugin
  */
 
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import {
@@ -32,13 +34,30 @@ const SKILLS: ReadonlyArray<{ name: string; description: string }> = [
   },
 ]
 
+/**
+ * The package root, found by walking up from this module to the nearest
+ * `package.json`. The module runs from `lib/index.js` in a built profile and
+ * from `src/skills/plugin.ts` under the source launch; `skills/` sits beside
+ * both `lib/` and `src/`.
+ */
+function packageRoot(): string {
+  let dir = dirname(fileURLToPath(import.meta.url))
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, 'package.json'))) return dir
+    dir = dirname(dir)
+  }
+  throw new Error('hy-finance: package.json not found above ' + import.meta.url)
+}
+
+const SKILLS_DIR = join(packageRoot(), 'skills')
+
 function bodyUrl(name: string): URL {
-  return new URL(`../skills/${name}/SKILL.md`, import.meta.url)
+  return new URL(`file://${join(SKILLS_DIR, name, 'SKILL.md')}`)
 }
 
 /** Directory of one skill's `SKILL.md`, the base for any resource it references. */
 function resourceBase(name: string): SkillResourceBase {
-  return { kind: 'directory', path: fileURLToPath(new URL(`../skills/${name}/`, import.meta.url)) }
+  return { kind: 'directory', path: join(SKILLS_DIR, name) }
 }
 
 function candidate(skill: { name: string; description: string }): SkillCandidate {
