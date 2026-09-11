@@ -10,8 +10,16 @@ export interface VoucherBuild { id:VoucherId; date:string; lines:VoucherLine[]; 
 export function buildVoucher(db: DatabaseSync, date:string, config:{ outputTaxSubject13:string; outputTaxSubject3:string }): VoucherBuild {
   const report = buildDailyReport(db,date); const lines:VoucherLine[]=[]; let n=1
   const add=(subject:string,name:string,debit:number,credit:number,summary:string,warning?:string)=>{ const l:VoucherLine={ date,voucherNo:1,lineNo:n++,summary,subject,subjectName:name,debit,credit }; if(warning) l.warning=warning; lines.push(l) }
-  const bank=report.rows.filter(r=>r.source!=='pos'&&r.source!=='wechat380'&&r.source!=='wechat706').reduce((s,r)=>s+r.subtotal,0)
-  const pos=report.rows.filter(r=>r.source==='pos').reduce((s,r)=>s+r.subtotal,0)
+  // Cash is determined from the settlement transaction, not the report display
+  // source: WeChat orders are child rows of a bank 2038 settlement.
+  const cash = db.prepare(`SELECT CASE WHEN p.platform = 'pos' THEN 'pos' ELSE 'bank' END AS bucket,
+      COALESCE(SUM(a.amount_incl_tax), 0) AS cents
+    FROM allocation a JOIN "transaction" t ON t.id = a.transaction_id
+    LEFT JOIN platform_txn p ON p.id = a.platform_txn_id
+    WHERE substr(COALESCE(p.txn_time, t.txn_time), 1, 10) = ?
+    GROUP BY bucket`).all(date) as unknown as { bucket: string; cents: number }[]
+  const bank = cash.find(x => x.bucket === 'bank')?.cents ?? 0
+  const pos = cash.find(x => x.bucket === 'pos')?.cents ?? 0
   if(bank) add('1002.02','银行存款_银行收款',bank,0,`${date} 收款`)
   if(pos) add('1012.08','其他货币资金_POS收款',pos,0,`${date} 收款`)
   for(const r of report.rows) for(const [fee,v] of Object.entries(r.amounts) as [FeeType,number][]) {
