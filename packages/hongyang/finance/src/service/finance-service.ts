@@ -15,6 +15,7 @@ import { importFile, type ImportOutcome } from '../provider/import/index.ts'
 import { splitSettlements, type SplitResult } from '../provider/split/settlement.ts'
 import { confirmClaim, learnPayer, listPending, runClaims, type ClaimRunResult, type ConfirmResult, type PendingItem, type UnlabelledPos } from '../provider/claim/engine.ts'
 import type { Split } from '../provider/claim/allocate.ts'
+import { buildDailyReport, compareDailyReport, exportDailyReport, type CompareResult, type DailyReport } from '../provider/report/daily-report.ts'
 import { listMerchants } from '../provider/db/repo.ts'
 import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
@@ -114,6 +115,21 @@ export class HyFinanceService extends Service {
   /** Remember a payer → shop mapping. */
   learnPayer(payerName: string, shopNo: string): Merchant {
     return learnPayer(this.db(), payerName, shopNo)
+  }
+
+  /** Build one day's income report from allocations. */
+  buildDailyReport(date: string): DailyReport {
+    return buildDailyReport(this.db(), date)
+  }
+
+  /** Write a built report as xlsx into `dir`. */
+  exportDailyReport(report: DailyReport, dir: string): Promise<string> {
+    return exportDailyReport(report, dir)
+  }
+
+  /** Compare a built report with the ledger rows of its day. */
+  compareDailyReport(report: DailyReport): CompareResult {
+    return compareDailyReport(this.db(), report, this.config.compareToleranceCents)
   }
 
   /** Every merchant, for pickers. */

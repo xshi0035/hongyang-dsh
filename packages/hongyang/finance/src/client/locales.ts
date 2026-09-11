@@ -75,7 +75,7 @@ export const en: Record<FinanceSettingsKey, string> = {
 /** Keys of the pending-claims review card. */
 export type ClaimsCardKey =
   | 'title' | 'remaining' | 'autoBooked' | 'autoSection' | 'noSuggestion' | 'shopPlaceholder'
-  | 'confirm' | 'confirming' | 'suspense' | 'learned' | 'unlabelledPos' | 'hint' | 'noSession'
+  | 'confirm' | 'confirming' | 'suspense' | 'learned' | 'unlabelledPos' | 'hint' | 'noSession' | 'running' | 'done' | 'failed'
   | 'colDate' | 'colSource' | 'colPayer' | 'colAmount' | 'colRemark' | 'colSuggestion' | 'colShop'
 
 /** Dictionary namespace of the claims card. */
@@ -95,6 +95,9 @@ export const claimsZh: Record<ClaimsCardKey, string> = {
   unlabelledPos: 'POS 无附言订单 {n} 笔，等运营部上报',
   hint: '点建议直接填入铺位，也可手输；确认后按未收顺序拆分费项，余额挂暂收款',
   noSession: '当前没有会话',
+  running: '认领中…',
+  done: '已完成',
+  failed: '认领失败',
   colDate: '日期',
   colSource: '来源',
   colPayer: '付款人',
@@ -118,6 +121,9 @@ export const claimsEn: Record<ClaimsCardKey, string> = {
   unlabelledPos: '{n} POS orders without remark await the operations desk',
   hint: 'Click a suggestion to fill the shop, or type one; confirmation splits fees by unpaid order and holds any remainder as suspense',
   noSession: 'No active session',
+  running: 'Claiming…',
+  done: 'Done',
+  failed: 'Claim failed',
   colDate: 'Date',
   colSource: 'Source',
   colPayer: 'Payer',
@@ -125,4 +131,71 @@ export const claimsEn: Record<ClaimsCardKey, string> = {
   colRemark: 'Remark',
   colSuggestion: 'Suggestion',
   colShop: 'Shop',
+}
+
+/** Keys of the daily-report review card. */
+export type ReportCardKey =
+  | 'title' | 'rows' | 'total' | 'compareAllMatch' | 'compareBadge' | 'feeSection' | 'compareSection' | 'compareTotals'
+  | 'exported' | 'hint' | 'kindMissing' | 'kindExtra' | 'kindAmount' | 'titleShort' | 'running' | 'done' | 'failed'
+  | 'colSource' | 'colCount' | 'colAmount' | 'colKind' | 'colShop' | 'colMerchant' | 'colReport' | 'colLedger' | 'colNote'
+
+/** Dictionary namespace of the report card. */
+export const REPORT_NS = 'hyFinance.report'
+
+export const reportZh: Record<ReportCardKey, string> = {
+  title: '{date} 收入日报表',
+  rows: '{n} 行',
+  total: '合计 {amount} 元',
+  compareAllMatch: '与台账逐行一致',
+  compareBadge: '与台账一致 {matched}/{n}',
+  feeSection: '费项合计',
+  compareSection: '台账 {ledger} 行：一致 {matched}，台账有生成无 {missing}，生成有台账无 {extra}，金额不同 {amount}',
+  compareTotals: '合计 生成 {report} / 台账 {ledger}',
+  exported: '已导出 {path}',
+  hint: '让助手“用 Univer 打开”即可在会话里预览和修改；数字全部来自认领记录',
+  kindMissing: '台账有',
+  kindExtra: '生成有',
+  kindAmount: '金额不同',
+  titleShort: '收入日报表',
+  running: '生成中…',
+  done: '已完成',
+  failed: '生成失败',
+  colSource: '来源',
+  colCount: '行数',
+  colAmount: '金额',
+  colKind: '类型',
+  colShop: '铺位',
+  colMerchant: '商户',
+  colReport: '生成',
+  colLedger: '台账',
+  colNote: '说明',
+}
+
+export const reportEn: Record<ReportCardKey, string> = {
+  title: 'Daily income report {date}',
+  rows: '{n} rows',
+  total: 'Total {amount}',
+  compareAllMatch: 'Matches the ledger line by line',
+  compareBadge: 'Ledger match {matched}/{n}',
+  feeSection: 'Totals by fee',
+  compareSection: 'Ledger {ledger} rows: matched {matched}, ledger-only {missing}, report-only {extra}, amount differs {amount}',
+  compareTotals: 'Totals report {report} / ledger {ledger}',
+  exported: 'Exported to {path}',
+  hint: 'Ask the assistant to open it in Univer to preview or edit; every number comes from booked allocations',
+  kindMissing: 'Ledger only',
+  kindExtra: 'Report only',
+  kindAmount: 'Amount differs',
+  titleShort: 'Daily income report',
+  running: 'Building…',
+  done: 'Done',
+  failed: 'Build failed',
+  colSource: 'Source',
+  colCount: 'Rows',
+  colAmount: 'Amount',
+  colKind: 'Kind',
+  colShop: 'Shop',
+  colMerchant: 'Merchant',
+  colReport: 'Report',
+  colLedger: 'Ledger',
+  colNote: 'Note',
 }

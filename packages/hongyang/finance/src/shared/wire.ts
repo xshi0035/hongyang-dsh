@@ -70,6 +70,39 @@ export interface ClaimMetaWire {
   readonly confirmed?: { itemId: string; shopNo: string; name: string; booked: string }
 }
 
+/** One ledger-comparison difference. */
+export interface DiffRowWire {
+  readonly kind: 'missing' | 'extra' | 'amount'
+  readonly shopNo: string
+  readonly merchantName: string
+  readonly source: string
+  readonly reportAmount: string
+  readonly ledgerAmount: string
+  readonly note: string
+}
+
+/** Metadata `finance_daily_report` persists on its result for the report card. */
+export interface ReportMetaWire {
+  readonly card: 'hy-finance/report'
+  readonly reportId: string
+  readonly date: string
+  readonly rows: number
+  readonly grandTotal: string
+  readonly totals: readonly { fee: string; amount: string }[]
+  readonly bySource: readonly { source: string; count: number; amount: string }[]
+  readonly xlsxPath?: string | undefined
+  readonly compare?: {
+    readonly ledgerRows: number
+    readonly matched: number
+    readonly missing: number
+    readonly extra: number
+    readonly amountDiffs: number
+    readonly reportTotal: string
+    readonly ledgerTotal: string
+    readonly diffs: readonly DiffRowWire[]
+  } | undefined
+}
+
 /** Request body of `POST /api/hy-finance/claim/confirm`. */
 export interface ConfirmRequestWire {
   readonly sessionId: string

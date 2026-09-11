@@ -8,12 +8,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button, IconChevronDownOutline14, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { ClaimsTurnData } from './claims-turn-data.ts'
 import type { ClaimsCardKey } from './locales.ts'
-import type { ConfirmResponseWire, MerchantWire, PendingItemWire, SuggestionWire } from '../shared/wire.ts'
+import type { ClaimMetaWire, ConfirmResponseWire, MerchantWire, PendingItemWire, SuggestionWire } from '../shared/wire.ts'
 import css from './PendingClaimsCard.module.css'
 
 /** What the registration injects: the current session and the Host calls. */
@@ -23,12 +20,14 @@ export interface ClaimsCardFace {
   autoOpen: () => boolean
 }
 
-/** Props the renderer binds. */
-export type PendingClaimsCardProps =
-  PropsRuntime<'conversation.chat.turnTail'>
-  & { matched: ClaimsTurnData }
-  & PropsLocale<'hyFinance.claims'>
-  & InjectFace<ClaimsCardFace>
+/** Props of the card body. */
+export interface PendingClaimsCardProps extends ClaimsCardFace {
+  meta: ClaimMetaWire
+  /** Sequence of the tool result, used to key per-render ids. */
+  seq: number
+  sessionId: string | undefined
+  t: (key: ClaimsCardKey) => string
+}
 
 function clsx(...names: (string | false | undefined)[]): string {
   return names.filter(Boolean).join(' ')
@@ -72,8 +71,7 @@ function SuggestionChips(props: SuggestionChipsProps) {
  * @returns the card.
  */
 export function PendingClaimsCard(props: PendingClaimsCardProps) {
-  const { t } = props
-  const data = props.matched
+  const { t, meta } = props
   const [open, setOpen] = useState(() => props.autoOpen())
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [merchants, setMerchants] = useState<MerchantWire[]>([])
@@ -84,15 +82,15 @@ export function PendingClaimsCard(props: PendingClaimsCardProps) {
     }
     return () => { live = false }
   }, [open, merchants.length, props])
-  const pending: readonly PendingItemWire[] = data.meta.pending
+  const pending: readonly PendingItemWire[] = meta.pending
   const remaining = pending.filter(p => rows[p.itemId]?.done === undefined).length
-  const listId = useMemo(() => `hy-merchants-${String(data.seq)}`, [data.seq])
+  const listId = useMemo(() => `hy-merchants-${String(props.seq)}`, [props.seq])
   const rowOf = (id: string): RowState => rows[id] ?? { shopNo: pending.find(p => p.itemId === id)?.suggestions[0]?.shopNo ?? '', busy: false }
   const setRow = (id: string, patch: Partial<RowState>): void => {
     setRows(prev => ({ ...prev, [id]: { ...rowOf(id), ...patch } }))
   }
   const confirm = async (item: PendingItemWire): Promise<void> => {
-    const sessionId = props.sessionId as string | undefined
+    const sessionId = props.sessionId
     if (sessionId === undefined) { setRow(item.itemId, { error: t('noSession') }); return }
     const state = rowOf(item.itemId)
     setRow(item.itemId, { busy: true, error: undefined })
@@ -106,13 +104,13 @@ export function PendingClaimsCard(props: PendingClaimsCardProps) {
       setRow(item.itemId, { busy: false, error: response.message })
     }
   }
-  const unlabelledCount = data.meta.unlabelledPos.reduce((s, u) => s + u.count, 0)
+  const unlabelledCount = meta.unlabelledPos.reduce((s, u) => s + u.count, 0)
   return (
     <section className={css.card}>
       <button type="button" className={css.header} aria-expanded={open} onClick={() => { setOpen(!open) }}>
         <span className={css.title}>{t('title')}</span>
         <Tag tone={remaining === 0 ? 'neutral' : 'outline'}>{t('remaining').replace('{n}', String(remaining))}</Tag>
-        {data.meta.autoBooked.length > 0 ? <span className={css.subtitle}>{t('autoBooked').replace('{n}', String(data.meta.autoBooked.length))}</span> : null}
+        {meta.autoBooked.length > 0 ? <span className={css.subtitle}>{t('autoBooked').replace('{n}', String(meta.autoBooked.length))}</span> : null}
         <span className={css.spacer} />
         <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
       </button>
@@ -189,13 +187,13 @@ export function PendingClaimsCard(props: PendingClaimsCardProps) {
               </table>
             </div>
           )}
-          {data.meta.autoBooked.length > 0 && (
+          {meta.autoBooked.length > 0 && (
             <>
               <div className={css.sectionTitle}>{t('autoSection')}</div>
               <div className={css.tableWrap}>
                 <table className={css.table}>
                   <tbody>
-                    {data.meta.autoBooked.map(a => (
+                    {meta.autoBooked.map(a => (
                       <tr key={a.itemId}>
                         <td>{a.payerName}</td>
                         <td className={css.amount}>{a.amount}</td>

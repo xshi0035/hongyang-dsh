@@ -9,12 +9,15 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import { FinanceSettingsCard } from './FinanceSettingsCard.tsx'
-import { PendingClaimsCard, type ClaimsCardFace } from './PendingClaimsCard.tsx'
-import { claimsDefinition, selectClaims } from './claims-turn-data.ts'
-import { claimsEn, claimsZh, CLAIMS_NS, en, NS, zh, type ClaimsCardKey, type FinanceSettingsKey } from './locales.ts'
+import type { ClaimsCardFace } from './PendingClaimsCard.tsx'
+import type { ReportCardFace } from './DailyReportCard.tsx'
+import { ClaimToolView, ReportToolView } from './FinanceToolViews.tsx'
+import {
+  claimsEn, claimsZh, CLAIMS_NS, en, NS, reportEn, reportZh, REPORT_NS, zh,
+  type ClaimsCardKey, type FinanceSettingsKey, type ReportCardKey,
+} from './locales.ts'
 import { HY_FINANCE_API, type ConfirmResponseWire, type MerchantWire } from '../shared/wire.ts'
 import { FinanceCardController, HY_FINANCE_NS, type FinanceCardFace, type FinanceSettings } from './settings-card.ts'
 
@@ -24,6 +27,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'settings.hyFinance': FinanceSettingsKey
     /** Pending-claims card copy. */
     'hyFinance.claims': ClaimsCardKey
+    /** Daily-report card copy. */
+    'hyFinance.report': ReportCardKey
   }
 }
 
@@ -31,7 +36,7 @@ export type { FinanceCardFace, FinanceCardState, FinanceSettings } from './setti
 export type { FinanceSettingsKey } from './locales.ts'
 
 /** Required services. */
-export const inject = ['slots', 'locale', 'settingsScope', 'uiConversation']
+export const inject = ['slots', 'locale', 'settingsScope']
 
 /**
  * Register dictionaries and the settings card.
@@ -47,12 +52,14 @@ export function apply(ctx: ClientContext): void {
     inject: (): FinanceCardFace => card.inject(),
   }, FinanceSettingsCard))
 
-  // Pending-claims review card at the tail of a Turn that left a queue.
+  // Tool views: a settled finance_claim renders the pending-claims card, a
+  // settled finance_daily_report the report card; both replay from result metadata.
   ctx.effect(() => ctx.locale.register(CLAIMS_NS, { zh: claimsZh, en: claimsEn }), 'hy-finance: claims dictionaries')
-  ctx.uiConversation.events.register(claimsDefinition)
+  ctx.effect(() => ctx.locale.register(REPORT_NS, { zh: reportZh, en: reportEn }), 'hy-finance: report dictionaries')
   const financeScope = ctx.settingsScope.bind<FinanceSettings>({ namespace: HY_FINANCE_NS })
-  const face: ClaimsCardFace = {
-    autoOpen: () => financeScope.getSnapshot().value?.autoOpenCards !== false,
+  const autoOpen = (): boolean => financeScope.getSnapshot().value?.autoOpenCards !== false
+  const claims: ClaimsCardFace = {
+    autoOpen,
     loadMerchants: async () => {
       const response = await fetch(`${HY_FINANCE_API}/merchants`, { credentials: 'same-origin' })
       const body = await response.json() as { merchants: MerchantWire[] }
@@ -68,10 +75,11 @@ export function apply(ctx: ClientContext): void {
       return await response.json() as ConfirmResponseWire
     },
   }
-  ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
-    name: 'conversation.chat.turnTail',
-    select: selectClaims,
-    locale: CLAIMS_NS,
-    inject: (): ClaimsCardFace => face,
-  }, PendingClaimsCard))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'finance_claim', locale: CLAIMS_NS, inject: (): ClaimsCardFace => claims,
+  }, ClaimToolView))
+  const report: ReportCardFace = { autoOpen }
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'finance_daily_report', locale: REPORT_NS, inject: (): ReportCardFace => report,
+  }, ReportToolView))
 }

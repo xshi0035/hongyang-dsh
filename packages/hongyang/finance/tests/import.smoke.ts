@@ -64,3 +64,13 @@ if (tu !== undefined) {
 }
 console.log('after confirm pending:', listPending(db).pending.length)
 console.log('allocation by fee:', db.prepare('SELECT fee_type, COUNT(*) n, SUM(amount_incl_tax) cents FROM allocation GROUP BY fee_type ORDER BY cents DESC').all())
+
+// ---- step 4: daily report vs ledger ----
+const { buildDailyReport, compareDailyReport, exportDailyReport } = await import('../src/provider/report/daily-report.ts')
+for (const day of ['2026-04-01', '2026-04-03']) {
+  const report = buildDailyReport(db, day)
+  const cmp = compareDailyReport(db, report, 1)
+  console.log(`\nreport ${day}: rows ${String(report.rows.length)} total ${(report.grandTotal / 100).toFixed(2)} | ledger rows ${String(cmp.ledgerRows)} total ${(cmp.ledgerTotal / 100).toFixed(2)} | matched ${String(cmp.matched)} missing ${String(cmp.diffs.filter(d => d.kind === 'missing').length)} extra ${String(cmp.diffs.filter(d => d.kind === 'extra').length)} amount ${String(cmp.diffs.filter(d => d.kind === 'amount').length)}`)
+  for (const d of cmp.diffs.slice(0, 14)) console.log('  DIFF', d.kind, d.shopNo, d.merchantName, d.source, d.reportAmount === undefined ? '—' : (d.reportAmount / 100).toFixed(2), '/', d.ledgerAmount === undefined ? '—' : (d.ledgerAmount / 100).toFixed(2))
+  if (day === '2026-04-03') console.log('  exported:', await exportDailyReport(report, '/private/tmp/claude-501/-Users-shixin-Desktop---dsh/4cda5cd3-459c-46a0-a02a-1769faeee997/scratchpad/hy-reports'))
+}

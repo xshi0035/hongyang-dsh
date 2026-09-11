@@ -8,6 +8,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
 import { financeClaimTool } from './definitions/claim.ts'
 import { financeImportTool } from './definitions/import.ts'
+import { financeDailyReportTool } from './definitions/report.ts'
 import { financeStatusTool } from './definitions/status.ts'
 
 /** Cordis plugin name. */
@@ -23,4 +24,5 @@ export function apply(ctx: Context): void {
   ctx.tools.register(financeStatusTool(ctx.hyFinance))
   ctx.tools.register(financeImportTool(ctx.hyFinance))
   ctx.tools.register(financeClaimTool(ctx.hyFinance))
+  ctx.tools.register(financeDailyReportTool(ctx.hyFinance))
 }
