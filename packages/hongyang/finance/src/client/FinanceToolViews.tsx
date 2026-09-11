@@ -9,6 +9,7 @@
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import { DailyReportCard, type ReportCardFace } from './DailyReportCard.tsx'
+import { VoucherCard } from './VoucherCard.tsx'
 import { PendingClaimsCard, type ClaimsCardFace } from './PendingClaimsCard.tsx'
 import type { ClaimMetaWire, ReportMetaWire, VoucherMetaWire } from '../shared/wire.ts'
 import css from './PendingClaimsCard.module.css'
@@ -85,5 +86,5 @@ export function VoucherToolView(props: VoucherToolViewProps) {
   if (block.isError) return <StatusRow title="凭证" detail="生成失败" />
   if (!isVoucherMeta(block.meta)) return <StatusRow title="凭证" detail="已完成" />
   const m = block.meta
-  return <StatusRow title={`凭证 ${m.date}`} detail={`${String(m.lines)} 行；借贷平衡：${m.balanced ? '是' : '否'}；${m.warnings.length > 0 ? `待确认 ${String(m.warnings.length)} 项` : '校验通过'}`} />
+  return <VoucherCard meta={m} autoOpen={() => true} />
 }

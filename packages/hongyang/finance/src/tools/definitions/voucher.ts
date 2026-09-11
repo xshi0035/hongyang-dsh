@@ -40,6 +40,11 @@ export function financeVoucherTool(service: HyFinanceService) {
       const compare = args.action === 'compare' ? compareVoucher(service.db(), voucher) : undefined
       const meta: VoucherMetaWire = {
         card: 'hy-finance/voucher', voucherId: String(voucher.id), date, lines: voucher.lines.length,
+        voucherLines: voucher.lines.map(line => ({
+          lineNo: line.lineNo, summary: line.summary, subject: line.subject, subjectName: line.subjectName,
+          debit: (line.debit / 100).toFixed(2), credit: (line.credit / 100).toFixed(2),
+          ...(line.warning === undefined ? {} : { warning: line.warning }),
+        })),
         balanced: voucher.checks.balanced, warnings: voucher.checks.warnings,
         ...(xlsxPath === undefined ? {} : { xlsxPath }),
         ...(compare === undefined ? {} : { compare: { matched: compare.matched, diffs: compare.diffs } }),

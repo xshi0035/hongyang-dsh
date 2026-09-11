@@ -1,0 +1,32 @@
+import { useState } from 'react'
+import { IconChevronDownOutline14, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { VoucherMetaWire } from '../shared/wire.ts'
+import css from './PendingClaimsCard.module.css'
+
+export function VoucherCard(props: { meta: VoucherMetaWire; autoOpen: () => boolean }) {
+  const { meta } = props
+  const [open, setOpen] = useState(() => props.autoOpen())
+  return <section className={css.card}>
+    <button type="button" className={css.header} aria-expanded={open} onClick={() => { setOpen(!open) }}>
+      <span className={css.title}>金蝶凭证 {meta.date}</span><Tag tone={meta.balanced ? 'neutral' : 'outline'}>{meta.balanced ? '借贷平衡' : '借贷不平'}</Tag>
+      <span className={css.subtitle}>{meta.lines} 行</span>
+      <span className={css.spacer} />
+      <IconChevronDownOutline14 className={open ? css.chevronOpen : css.chevron} />
+    </button>
+    {open && <div className={css.body}>
+      {meta.warnings.length > 0 && <div className={css.error}>待确认：{meta.warnings.join('、')}</div>}
+      <div className={css.tableWrap}>
+        <table className={css.table}>
+          <thead><tr><th>行</th><th>摘要</th><th>科目</th><th>科目全名</th>
+            <th className={css.amount}>借方</th><th className={css.amount}>贷方</th></tr></thead>
+          <tbody>{meta.voucherLines.map(line => (
+            <tr key={line.lineNo}><td>{line.lineNo}</td><td>{line.summary}</td><td>{line.subject || '待确认'}</td>
+              <td className={css.muted}>{line.subjectName || '—'}</td><td className={css.amount}>{line.debit}</td>
+              <td className={css.amount}>{line.credit}</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {meta.xlsxPath !== undefined && <div className={css.footer}>已导出：{meta.xlsxPath}</div>}
+    </div>}
+  </section>
+}

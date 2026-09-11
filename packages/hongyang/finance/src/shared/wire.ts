@@ -110,6 +110,15 @@ export interface VoucherMetaWire {
   readonly lines: number
   readonly balanced: boolean
   readonly warnings: readonly string[]
+  readonly voucherLines: readonly {
+    lineNo: number
+    summary: string
+    subject: string
+    subjectName: string
+    debit: string
+    credit: string
+    warning?: string
+  }[]
   readonly xlsxPath?: string | undefined
   readonly compare?: { matched: number; diffs: readonly unknown[] } | undefined
 }
