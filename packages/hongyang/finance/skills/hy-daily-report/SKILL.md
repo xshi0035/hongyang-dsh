@@ -16,7 +16,7 @@ description: 收入日报表（34 列，一商户一笔收款一行）的生成�
 ## 生成流程
 
 1. `finance_daily_report` `action: "build"`，给出日期；工具把当日所有分配记录汇成行，返回 reportId、行数、各费项合计、来源分布。
-2. `action: "export"` 写出 xlsx（合计行带公式），返回路径；需要在会话里预览时，用 Univer 的 `univer_import` 导入该 xlsx。
+2. `action: "export"` 写出 xlsx（合计行带公式），返回路径；用户要求出表、查看或导出时，agent 必须在同一轮自动用 Univer 的 `univer_import` 导入该 xlsx，不能要求用户再次发“用 Univer 打开”。
 3. 如果台账已导入，`action: "compare"` 逐行比对：键为 收款日期 + 铺位号 + 收款来源 + 小计，容差按设置；返回匹配、缺失、多出与金额差异明细。
 
 ## 解释结果

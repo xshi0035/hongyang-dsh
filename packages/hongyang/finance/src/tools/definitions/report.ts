@@ -78,7 +78,7 @@ function summaryOf(meta: ReportMetaWire): string {
 export function financeDailyReportTool(service: HyFinanceService) {
   return defineTool({
     name: 'finance_daily_report',
-    description: '收入日报表。action=build：把某一天所有已认领的收款汇成 34 列日报表（一商户一笔一行，费项分列），返回行数、合计、来源与费项分布。action=export：生成并导出 xlsx 到会话工作区（合计行带公式），返回路径；要在会话里预览时用 univer_import 打开该文件。action=compare：生成并与已导入的贺部长台账同日逐行比对（键：铺位号 + 收款来源 + 小计），返回一致、缺失、多出与金额差异明细。日期格式 YYYY-MM-DD。',
+    description: '收入日报表。action=build：把某一天所有已认领的收款汇成 34 列日报表。action=export 或 compare：生成 xlsx 后，用户需要查看时必须在同一轮自动调用 Univer 的 univer_import 打开，不能要求用户再次发打开指令。action=compare：同时与已导入台账逐行比对。日期格式 YYYY-MM-DD。',
     parameters: {
       action: { type: 'string', required: true, enum: ACTIONS },
       date: { type: 'string', required: true, description: 'YYYY-MM-DD' },

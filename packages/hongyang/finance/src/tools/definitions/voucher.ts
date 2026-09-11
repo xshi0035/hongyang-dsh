@@ -11,7 +11,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 export function financeVoucherTool(service: HyFinanceService) {
   return defineTool({
     name: 'finance_voucher',
-    description: '从指定日期日报表生成金蝶 21 列凭证，校验借贷平衡和税率科目，并可与客户 voucher_row 逐行比较。导出 xlsx 后请使用 Univer 的 univer_import 打开，不要用普通文本预览。',
+    description: '从指定日期日报表生成金蝶 21 列凭证，校验借贷平衡和税率科目，并可与客户 voucher_row 逐行比较。用户要求出凭证、导出或查看时，agent 必须在同一轮自动调用 Univer 的 univer_import 打开 xlsx，不要等待用户再次说明。',
     parameters: {
       action: { type: 'string', required: true, enum: ACTIONS },
       date: { type: 'string', required: true, description: 'YYYY-MM-DD' },
