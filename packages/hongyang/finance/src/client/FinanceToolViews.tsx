@@ -10,7 +10,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import { DailyReportCard, type ReportCardFace } from './DailyReportCard.tsx'
 import { PendingClaimsCard, type ClaimsCardFace } from './PendingClaimsCard.tsx'
-import type { ClaimMetaWire, ReportMetaWire } from '../shared/wire.ts'
+import type { ClaimMetaWire, ReportMetaWire, VoucherMetaWire } from '../shared/wire.ts'
 import css from './PendingClaimsCard.module.css'
 
 function isClaimMeta(value: unknown): value is ClaimMetaWire {
@@ -20,6 +20,9 @@ function isClaimMeta(value: unknown): value is ClaimMetaWire {
 
 function isReportMeta(value: unknown): value is ReportMetaWire {
   return typeof value === 'object' && value !== null && (value as { card?: unknown }).card === 'hy-finance/report'
+}
+function isVoucherMeta(value: unknown): value is VoucherMetaWire {
+  return typeof value === 'object' && value !== null && (value as { card?: unknown }).card === 'hy-finance/voucher'
 }
 
 function StatusRow(props: { title: string; detail: string }) {
@@ -73,4 +76,14 @@ export function ReportToolView(props: ReportToolViewProps) {
   if (block.isError) return <StatusRow title={t('titleShort')} detail={t('failed')} />
   if (!isReportMeta(block.meta)) return <StatusRow title={t('titleShort')} detail={t('done')} />
   return <DailyReportCard meta={block.meta} t={t} autoOpen={props.autoOpen} />
+}
+
+export type VoucherToolViewProps = PropsRuntime<'tool.call.toolview'>
+export function VoucherToolView(props: VoucherToolViewProps) {
+  const { block } = props
+  if (!('kind' in block)) return <StatusRow title="凭证" detail="生成中…" />
+  if (block.isError) return <StatusRow title="凭证" detail="生成失败" />
+  if (!isVoucherMeta(block.meta)) return <StatusRow title="凭证" detail="已完成" />
+  const m = block.meta
+  return <StatusRow title={`凭证 ${m.date}`} detail={`${String(m.lines)} 行；借贷平衡：${m.balanced ? '是' : '否'}；${m.warnings.length > 0 ? `待确认 ${String(m.warnings.length)} 项` : '校验通过'}`} />
 }

@@ -13,7 +13,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
 import { FinanceSettingsCard } from './FinanceSettingsCard.tsx'
 import type { ClaimsCardFace } from './PendingClaimsCard.tsx'
 import type { ReportCardFace } from './DailyReportCard.tsx'
-import { ClaimToolView, ReportToolView } from './FinanceToolViews.tsx'
+import { ClaimToolView, ReportToolView, VoucherToolView } from './FinanceToolViews.tsx'
 import {
   claimsEn, claimsZh, CLAIMS_NS, en, NS, reportEn, reportZh, REPORT_NS, zh,
   type ClaimsCardKey, type FinanceSettingsKey, type ReportCardKey,
@@ -82,4 +82,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview', key: 'finance_daily_report', locale: REPORT_NS, inject: (): ReportCardFace => report,
   }, ReportToolView))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'finance_voucher', locale: REPORT_NS, inject: () => ({}),
+  }, VoucherToolView))
 }

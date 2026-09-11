@@ -103,6 +103,17 @@ export interface ReportMetaWire {
   } | undefined
 }
 
+export interface VoucherMetaWire {
+  readonly card: 'hy-finance/voucher'
+  readonly voucherId: string
+  readonly date: string
+  readonly lines: number
+  readonly balanced: boolean
+  readonly warnings: readonly string[]
+  readonly xlsxPath?: string | undefined
+  readonly compare?: { matched: number; diffs: readonly unknown[] } | undefined
+}
+
 /** Request body of `POST /api/hy-finance/claim/confirm`. */
 export interface ConfirmRequestWire {
   readonly sessionId: string
