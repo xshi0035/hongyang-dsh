@@ -17,6 +17,7 @@ import { confirmClaim, learnPayer, listPending, runClaims, type ClaimRunResult, 
 import type { Split } from '../provider/claim/allocate.ts'
 import { buildDailyReport, compareDailyReport, exportDailyReport, type CompareResult, type DailyReport } from '../provider/report/daily-report.ts'
 import { listMerchants } from '../provider/db/repo.ts'
+import { buildVoucher } from '../provider/voucher/build.ts'
 import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -131,6 +132,8 @@ export class HyFinanceService extends Service {
   compareDailyReport(report: DailyReport): CompareResult {
     return compareDailyReport(this.db(), report, this.config.compareToleranceCents)
   }
+
+  buildVoucher(date: string) { return buildVoucher(this.db(), date, this.config) }
 
   /** Every merchant, for pickers. */
   merchants(): Merchant[] {

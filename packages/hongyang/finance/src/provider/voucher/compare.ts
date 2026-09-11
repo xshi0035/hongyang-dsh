@@ -1,0 +1,3 @@
+/* oxlint-disable */
+import type { DatabaseSync } from 'node:sqlite'; import type { VoucherBuild } from './build.ts'
+export function compareVoucher(db:DatabaseSync,v:VoucherBuild){const rows=db.prepare('SELECT voucher_no,line_no,summary,subject,debit,credit FROM voucher_row WHERE date=? ORDER BY voucher_no,line_no').all(v.date) as any[]; const diffs=[]; const n=Math.max(rows.length,v.lines.length); for(let i=0;i<n;i++){const a=rows[i],b=v.lines[i]; if(!a||!b||a.subject!==b.subject||a.debit!==b.debit||a.credit!==b.credit||a.summary!==b.summary) diffs.push({ line:i+1,expected:a??null,actual:b??null })} return { date:v.date,matched:n-diffs.length,diffs }}
