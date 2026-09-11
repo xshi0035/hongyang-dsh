@@ -15,6 +15,17 @@ export function VoucherCard(props: { meta: VoucherMetaWire; autoOpen: () => bool
     </button>
     {open && <div className={css.body}>
       {meta.warnings.length > 0 && <div className={css.error}>待确认：{meta.warnings.join('、')}</div>}
+      {meta.compare !== undefined && <div className={css.sectionTitle}>
+        逐行比对：一致 {meta.compare.matched} 行，差异 {meta.compare.diffs.length} 行
+      </div>}
+      {meta.compare !== undefined && meta.compare.diffs.length > 0 && <div className={css.tableWrap}><table className={css.table}>
+        <thead><tr><th>行</th><th>客户科目</th><th className={css.amount}>客户金额</th><th>系统科目</th><th className={css.amount}>系统金额</th></tr></thead>
+        <tbody>{meta.compare.diffs.slice(0, 40).map((diff) => {
+          const expected = diff.expected as { subject?: string; debit?: number; credit?: number } | null
+          const actual = diff.actual as { subject?: string; debit?: number; credit?: number } | null
+          return <tr key={diff.line}><td>{diff.line}</td><td>{expected?.subject ?? '—'}</td><td className={css.amount}>{expected === null ? '—' : ((expected.debit ?? expected.credit ?? 0) / 100).toFixed(2)}</td><td>{actual?.subject ?? '—'}</td><td className={css.amount}>{actual === null ? '—' : ((actual.debit ?? actual.credit ?? 0) / 100).toFixed(2)}</td></tr>
+        })}</tbody>
+      </table></div>}
       <div className={css.tableWrap}>
         <table className={css.table}>
           <thead><tr><th>行</th><th>摘要</th><th>科目</th><th>科目全名</th>

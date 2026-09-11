@@ -120,7 +120,10 @@ export interface VoucherMetaWire {
     warning?: string
   }[]
   readonly xlsxPath?: string | undefined
-  readonly compare?: { matched: number; diffs: readonly unknown[] } | undefined
+  readonly compare?: {
+    matched: number
+    diffs: readonly { line: number; expected: unknown; actual: unknown }[]
+  } | undefined
 }
 
 /** Request body of `POST /api/hy-finance/claim/confirm`. */
