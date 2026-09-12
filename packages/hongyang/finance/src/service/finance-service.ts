@@ -18,6 +18,7 @@ import type { Split } from '../provider/claim/allocate.ts'
 import { buildDailyReport, compareDailyReport, exportDailyReport, type CompareResult, type DailyReport } from '../provider/report/daily-report.ts'
 import { listMerchants } from '../provider/db/repo.ts'
 import { buildVoucher } from '../provider/voucher/build.ts'
+import { merchantBalance, overdue, receivableSummary, todayReceipts, type MerchantBalance, type OverdueRow, type ReceivableSummary, type ReceiptToday } from '../provider/query/dashboard.ts'
 import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -134,6 +135,11 @@ export class HyFinanceService extends Service {
   }
 
   buildVoucher(date: string) { return buildVoucher(this.db(), date, this.config) }
+
+  receivableSummary(): ReceivableSummary { return receivableSummary(this.db()) }
+  merchantBalance(query: string): MerchantBalance[] { return merchantBalance(this.db(), query) }
+  overdue(days: number, today: string): OverdueRow[] { return overdue(this.db(), days, today) }
+  todayReceipts(date: string): ReceiptToday[] { return todayReceipts(this.db(), date) }
 
   /** Every merchant, for pickers. */
   merchants(): Merchant[] {
