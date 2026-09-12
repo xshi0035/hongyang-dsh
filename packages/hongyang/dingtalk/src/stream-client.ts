@@ -1,4 +1,4 @@
-import { DWClient, EventAck, TOPIC_ROBOT, type DWClientDownStream, type RobotMessage } from 'dingtalk-stream'
+import { DWClient, EventAck, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
 import type { DingtalkConfig, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
 /** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
@@ -41,14 +41,27 @@ export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Din
 
 async function dispatchRobotMessage(downstream: DWClientDownStream, handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>) {
   if (downstream.headers.topic !== TOPIC_ROBOT) return
-  const message = JSON.parse(downstream.data) as RobotMessage
+  const raw = JSON.parse(downstream.data) as unknown as {
+    msgtype?: string
+    msgId: string
+    senderStaffId?: string
+    senderId: string
+    conversationId: string
+    text?: { content?: string }
+    content?: { downloadCode?: string }
+    sessionWebhook: string
+  }
+  const text = raw.text?.content?.trim() ?? ''
+  const imageDownloadCode = raw.content?.downloadCode
+  if (raw.msgtype !== 'text' && raw.msgtype !== 'picture') return
   const reply = await handler({
-    deliveryId: message.msgId,
-    userId: message.senderStaffId || message.senderId,
-    conversationId: message.conversationId,
-    text: message.text.content.trim(),
+    deliveryId: raw.msgId,
+    userId: raw.senderStaffId || raw.senderId,
+    conversationId: raw.conversationId,
+    text,
+    ...(imageDownloadCode === undefined ? {} : { imageUrl: 'downloadCode:' + imageDownloadCode }),
   })
-  await fetch(message.sessionWebhook, {
+  await fetch(raw.sessionWebhook, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ msgtype: 'text', text: { content: reply.text } }),
