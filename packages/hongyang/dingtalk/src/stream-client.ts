@@ -1,14 +1,21 @@
-import { DWClient, EventAck, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
+import { DWClient, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
 import type { DingtalkConfig, DingtalkImageDownloader, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
 /** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
 export function createDingtalkStreamClient(config: DingtalkConfig, imageDownloader?: DingtalkImageDownloader): DingtalkStreamClient {
   const client = new DWClient(config)
   const handlers = new Set<(message: DingtalkTextMessage) => Promise<DingtalkReply>>()
+  const delivered = new Set<string>()
   let connected = false
-  client.registerAllEventListener((downstream) => {
-    for (const handler of handlers) void dispatchRobotMessage(downstream, handler, imageDownloader)
-    return { status: EventAck.SUCCESS }
+  client.registerCallbackListener(TOPIC_ROBOT, (downstream) => {
+    if (delivered.has(downstream.headers.messageId)) return
+    delivered.add(downstream.headers.messageId)
+    if (delivered.size > 1000) delivered.delete(delivered.values().next().value as string)
+    for (const handler of handlers) {
+      void dispatchRobotMessage(downstream, handler, imageDownloader).finally(() => {
+        client.socketCallBackResponse(downstream.headers.messageId, { status: 'SUCCESS' })
+      })
+    }
   })
   return {
     onMessage(handler) {
