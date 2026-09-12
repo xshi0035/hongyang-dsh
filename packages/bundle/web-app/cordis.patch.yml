@@ -490,3 +490,5 @@
       name: '@deepseek-ai/dsh-hy-finance'
       config:
         dbPath: ''
+    - id: hy-dingtalk
+      name: '@deepseek-ai/dsh-hy-dingtalk'
