@@ -20,9 +20,9 @@ export interface Config {
   autoOpenCards: boolean
   /** Amount tolerance, in cents, when comparing generated rows with the client's ledger. */
   compareToleranceCents: number
-  /** Output-VAT ledger account for 13% items (electricity); empty means still unconfirmed with the client. */
+  /** Confirmed output-VAT ledger account for 13% items (electricity). */
   outputTaxSubject13: string
-  /** Output-VAT ledger account for 3% items (water); empty means still unconfirmed with the client. */
+  /** Confirmed output-VAT ledger account for 3% items (water). */
   outputTaxSubject3: string
   /** Legal entity that receives every payment; used to validate payment screenshots. */
   companyName: string
