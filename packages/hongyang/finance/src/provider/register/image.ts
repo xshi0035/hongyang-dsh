@@ -1,18 +1,34 @@
 import type { DatabaseSync } from 'node:sqlite'
+import z from 'zod'
 import { registerPayment, type RegisterResult } from './payment.ts'
 
 /** Untrusted fields returned by a vision model. The provider owns conversion and validation. */
 export interface PaymentImageExtraction {
   amountText: string
-  paymentDate?: string
-  transactionNo?: string
-  payee?: string
-  merchantText?: string
-  feeText?: string
+  paymentDate?: string | undefined
+  transactionNo?: string | undefined
+  payee?: string | undefined
+  merchantText?: string | undefined
+  feeText?: string | undefined
 }
 
 export interface ImageRegistrationOptions {
   companyName: string
+}
+
+const extractionSchema = z.object({
+  amountText: z.string().min(1),
+  paymentDate: z.string().optional(),
+  transactionNo: z.string().optional(),
+  payee: z.string().optional(),
+  merchantText: z.string().optional(),
+  feeText: z.string().optional(),
+})
+
+/** Parse model text without doing any financial conversion in the model layer. */
+export function parsePaymentImageExtraction(raw: string): PaymentImageExtraction {
+  const value = JSON.parse(raw) as unknown
+  return extractionSchema.parse(value)
 }
 
 /** Convert a validated extraction into the same deterministic text registration path. */
