@@ -11,6 +11,6 @@
   "license": "UNLICENSED",
   "scripts": { "bundle": "tsdown", "watch": "tsdown --watch" },
   "dependencies": { "dingtalk-stream": "2.1.6-beta.1" },
-  "peerDependencies": { "@deepseek-ai/cordis": "workspace:^", "@deepseek-ai/dsh-hy-finance": "workspace:^" },
-  "devDependencies": { "@deepseek-ai/cordis": "workspace:^", "@deepseek-ai/dsh-hy-finance": "workspace:^" }
+  "peerDependencies": { "@deepseek-ai/cordis": "workspace:^", "@deepseek-ai/dsh-attachment": "workspace:^", "@deepseek-ai/dsh-hy-finance": "workspace:^", "@deepseek-ai/dsh-llm": "workspace:^" },
+  "devDependencies": { "@deepseek-ai/cordis": "workspace:^", "@deepseek-ai/dsh-attachment": "workspace:^", "@deepseek-ai/dsh-hy-finance": "workspace:^", "@deepseek-ai/dsh-llm": "workspace:^" }
 }
