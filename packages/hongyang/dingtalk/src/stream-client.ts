@@ -25,7 +25,8 @@ export function createDingtalkStreamClient(config: DingtalkConfig, imageDownload
     async connect() {
       if (!connected) {
         await client.connect()
-        connected = true
+        connected = client.connected
+        console.info(connected ? 'hy-dingtalk: Stream connected' : 'hy-dingtalk: Stream connection failed; SDK will retry')
       }
     },
     close() {

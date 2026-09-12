@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { HyFinanceService } from '@deepseek-ai/dsh-hy-finance'
+import type {} from '@deepseek-ai/dsh-hy-finance'
 import { createFinanceDingtalkBridge } from './bridge.ts'
 import { createDingtalkStreamClient, dingtalkConfigFromEnv } from './stream-client.ts'
 
@@ -11,9 +11,13 @@ export const inject = ['hyFinance']
 /** Mount the text-capable DingTalk Stream bridge in the host profile. */
 export function apply(ctx: Context): void {
   const config = dingtalkConfigFromEnv()
-  if (config === undefined) return
+  if (config === undefined) {
+    console.warn('hy-dingtalk: credentials missing; Stream is disabled')
+    return
+  }
+  console.info('hy-dingtalk: finance service ready; starting Stream')
   ctx.inject(['hyFinance'], (scope) => {
-    const service = scope.hyFinance as HyFinanceService
+    const service = scope.hyFinance
     const stream = createFinanceDingtalkBridge(service, createDingtalkStreamClient(config))
     void stream.connect()
     ctx.effect(() => () => stream.close(), 'hy-dingtalk: close stream')
