@@ -1,6 +1,6 @@
 /* oxlint-disable */
 import type { DatabaseSync } from 'node:sqlite'
-import { FEE_RULES, type FeeType } from '../../rules/fee-types.ts'
+import { FEE_RULES, OUTPUT_TAX_SUBJECTS, type FeeType } from '../../rules/fee-types.ts'
 import { taxOf } from '../../rules/tax.ts'
 import { newId, type VoucherId } from '../../service/identifiers.ts'
 import { buildDailyReport } from '../report/daily-report.ts'
@@ -26,7 +26,7 @@ export function buildVoucher(db: DatabaseSync, date:string, config:{ outputTaxSu
     const rule=FEE_RULES[fee]; const summary=`${r.shopNo}${r.merchantName ? `-${r.merchantName}`:''} ${rule.label}`
     if(rule.subject===null){ add('', '',0,v,summary,'待确认预收科目'); continue }
     add(rule.subject,rule.subjectName??'',0,v,summary)
-    if(rule.taxRate>0){ const tax=taxOf(v,rule.taxRate); const subj=rule.taxRate===0.13?config.outputTaxSubject13:rule.taxRate===0.03?config.outputTaxSubject3:'2221.01.02.06'; const warn=subj===''?'待确认销项税科目':undefined; add(rule.subject,rule.subjectName??'',tax,0,summary); add(subj,'应交税费_应交增值税_销项税额',0,tax,summary,warn) }
+    if(rule.taxRate>0){ const tax=taxOf(v,rule.taxRate); const subj=rule.taxRate===0.13?config.outputTaxSubject13:rule.taxRate===0.03?config.outputTaxSubject3:(OUTPUT_TAX_SUBJECTS[rule.taxRate] ?? ''); const warn=subj===''?'待确认销项税科目':undefined; add(rule.subject,rule.subjectName??'',tax,0,summary); add(subj,'应交税费_应交增值税_销项税额',0,tax,summary,warn) }
   }
   const debit=lines.reduce((s,l)=>s+l.debit,0), credit=lines.reduce((s,l)=>s+l.credit,0)
   const warnings=lines.flatMap(l=>l.warning?[l.warning]:[]); return { id:newId<VoucherId>('vcr'),date,lines,checks:{ balanced:debit===credit,warnings } }

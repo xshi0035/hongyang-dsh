@@ -251,6 +251,7 @@ interface LedgerRow {
   brand: string
   subtotal: number
   source: string
+  amounts: string
 }
 
 /** Loose shop tokens: `1019-BB` → `1019BB`, `5F-5009A` → `5009A`, `5002A,5002B` → both. */
@@ -283,20 +284,46 @@ function sameParty(r: ReportRow, l: LedgerRow): boolean {
  * overlap, contracting name, or brand) + same source + amount; same source +
  * amount alone (rows the ledger files without a shop, such as parking); and
  * one report row equal to the sum of the ledger's rows for the same party and
- * source (the ledger splits one payment by period).
+ * source (the ledger splits one payment by period). A paired row counts as
+ * matched only when every fee amount also agrees; fee differences use the
+ * amount-difference category even when subtotals are equal.
  * @param db - open database.
  * @param report - a built report.
  * @param toleranceCents - allowed subtotal difference for an amount match.
  * @returns matched count and diffs.
  */
 export function compareDailyReport(db: DatabaseSync, report: DailyReport, toleranceCents: number): CompareResult {
-  const ledger = db.prepare('SELECT shop_no, merchant_name, brand, subtotal, source FROM ledger_row WHERE date = ?').all(report.date) as unknown as LedgerRow[]
+  const ledger = db.prepare('SELECT shop_no, merchant_name, brand, subtotal, source, amounts FROM ledger_row WHERE date = ?')
+    .all(report.date) as unknown as LedgerRow[]
   const labelToSource = new Map(Object.entries(SOURCE_LABELS).map(([k, v]) => [v, k as Source]))
   const L = ledger.map(l => ({ l, source: labelToSource.get(l.source) ?? l.source, used: false }))
   const R = report.rows.map(r => ({ r, used: false }))
   const close = (a: number, b: number): boolean => Math.abs(a - b) <= toleranceCents
   let matched = 0
-  const take = (ri: { used: boolean }, li: { used: boolean }): void => { ri.used = true; li.used = true; matched++ }
+  const diffs: DiffRow[] = []
+  const checkFees = (r: ReportRow, rows: LedgerRow[]): void => {
+    const expected: Record<string, number> = {}
+    for (const row of rows) {
+      const amounts = JSON.parse(row.amounts) as Record<string, number>
+      for (const [fee, amount] of Object.entries(amounts)) expected[fee] = (expected[fee] ?? 0) + amount
+    }
+    const actual: Readonly<Record<string, number | undefined>> = r.amounts
+    const fees = new Set([...Object.keys(expected), ...Object.keys(actual)])
+    const differences = [...fees].filter(fee => !close(actual[fee] ?? 0, expected[fee] ?? 0))
+    if (differences.length === 0) { matched++; return }
+    const note = differences.map((fee) => {
+      const knownFee = FEE_TYPES.find(value => value === fee)
+      const label = knownFee === undefined ? fee : FEE_RULES[knownFee].label
+      return `${label}：生成 ${formatCents(actual[fee] ?? 0)} / 台账 ${formatCents(expected[fee] ?? 0)}`
+    }).join('；')
+    diffs.push({
+      kind: 'amount', shopNo: r.shopNo, merchantName: r.merchantName, source: SOURCE_LABELS[r.source],
+      reportAmount: r.subtotal, ledgerAmount: rows.reduce((sum, row) => sum + row.subtotal, 0), note: `费项金额差异：${note}`,
+    })
+  }
+  const take = (ri: { r: ReportRow; used: boolean }, li: { l: LedgerRow; used: boolean }): void => {
+    ri.used = true; li.used = true; checkFees(ri.r, [li.l])
+  }
   // 1. exact
   for (const ri of R) {
     const li = L.find(c => !c.used && c.source === ri.r.source
@@ -317,9 +344,12 @@ export function compareDailyReport(db: DatabaseSync, report: DailyReport, tolera
   for (const ri of R.filter(x => !x.used)) {
     const group = L.filter(c => !c.used && c.source === ri.r.source && sameParty(ri.r, c.l))
     const sum = group.reduce((s, c) => s + c.l.subtotal, 0)
-    if (group.length > 1 && close(sum, ri.r.subtotal)) { ri.used = true; for (const c of group) c.used = true; matched++ }
+    if (group.length > 1 && close(sum, ri.r.subtotal)) {
+      ri.used = true
+      for (const c of group) c.used = true
+      checkFees(ri.r, group.map(c => c.l))
+    }
   }
-  const diffs: DiffRow[] = []
   for (const ri of R.filter(x => !x.used)) {
     const near = L.find(c => !c.used && c.source === ri.r.source && sameParty(ri.r, c.l))
     if (near !== undefined) {

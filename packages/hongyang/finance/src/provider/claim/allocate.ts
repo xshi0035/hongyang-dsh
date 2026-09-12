@@ -159,11 +159,13 @@ export function allocate(db: DatabaseSync, request: AllocationRequest): Allocati
   return out
 }
 
-/** Explicit splits settle the merchant's open lines for the same fee, oldest first, when any exist. */
+/** Explicit splits respect supplied periods; otherwise settle the same fee oldest first. */
 function attachLines(db: DatabaseSync, merchantId: MerchantId, splits: readonly Split[]): LineSplit[] {
   const open = openLines(db, merchantId).filter(r => r.open > 0).sort((a, b) => a.period.localeCompare(b.period))
   return splits.map((s) => {
-    const line = open.find(r => r.fee_type === s.feeType && r.open >= s.amount)
+    const line = open.find(r => r.fee_type === s.feeType && r.open >= s.amount
+      && (s.periodStart === undefined || r.period_start === s.periodStart)
+      && (s.periodEnd === undefined || r.period_end === s.periodEnd))
     if (line === undefined) return s
     line.open -= s.amount
     return {
