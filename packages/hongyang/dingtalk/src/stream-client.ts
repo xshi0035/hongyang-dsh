@@ -1,13 +1,13 @@
 import { DWClient, EventAck, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
-import type { DingtalkConfig, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
+import type { DingtalkConfig, DingtalkImageDownloader, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
 /** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
-export function createDingtalkStreamClient(config: DingtalkConfig): DingtalkStreamClient {
+export function createDingtalkStreamClient(config: DingtalkConfig, imageDownloader?: DingtalkImageDownloader): DingtalkStreamClient {
   const client = new DWClient(config)
   const handlers = new Set<(message: DingtalkTextMessage) => Promise<DingtalkReply>>()
   let connected = false
   client.registerAllEventListener((downstream) => {
-    for (const handler of handlers) void dispatchRobotMessage(downstream, handler)
+    for (const handler of handlers) void dispatchRobotMessage(downstream, handler, imageDownloader)
     return { status: EventAck.SUCCESS }
   })
   return {
@@ -39,7 +39,11 @@ export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Din
   return { clientId, clientSecret, debug: env.DINGTALK_DEBUG === '1' }
 }
 
-async function dispatchRobotMessage(downstream: DWClientDownStream, handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>) {
+async function dispatchRobotMessage(
+  downstream: DWClientDownStream,
+  handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>,
+  imageDownloader?: DingtalkImageDownloader,
+) {
   if (downstream.headers.topic !== TOPIC_ROBOT) return
   const raw = JSON.parse(downstream.data) as unknown as {
     msgtype?: string
@@ -54,12 +58,17 @@ async function dispatchRobotMessage(downstream: DWClientDownStream, handler: (me
   const text = raw.text?.content?.trim() ?? ''
   const imageDownloadCode = raw.content?.downloadCode
   if (raw.msgtype !== 'text' && raw.msgtype !== 'picture') return
+  const imageUrl = imageDownloadCode === undefined
+    ? undefined
+    : imageDownloader === undefined
+      ? 'downloadCode:' + imageDownloadCode
+      : await imageDownloader.download(imageDownloadCode)
   const reply = await handler({
     deliveryId: raw.msgId,
     userId: raw.senderStaffId || raw.senderId,
     conversationId: raw.conversationId,
     text,
-    ...(imageDownloadCode === undefined ? {} : { imageUrl: 'downloadCode:' + imageDownloadCode }),
+    ...(imageUrl === undefined ? {} : { imageUrl }),
   })
   await fetch(raw.sessionWebhook, {
     method: 'POST',

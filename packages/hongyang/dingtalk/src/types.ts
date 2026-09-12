@@ -16,3 +16,6 @@ export interface DingtalkConfig {
   readonly clientSecret: string
   readonly debug?: boolean
 }
+export interface DingtalkImageDownloader {
+  download(downloadCode: string): Promise<string>
+}
