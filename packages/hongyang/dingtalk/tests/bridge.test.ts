@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createFinanceDingtalkBridge } from '../src/bridge.ts'
 
-test('routes text through registration and supports unsubscribe', async () => {
+void test('routes text through registration and supports unsubscribe', async () => {
   let handler: ((message: { text: string; imageUrl?: string }) => Promise<{ text: string }>) | undefined
   const stream = {
     connect: async () => {},
@@ -20,10 +20,10 @@ test('routes text through registration and supports unsubscribe', async () => {
   }
   createFinanceDingtalkBridge(service, stream)
   assert.ok(handler)
-  assert.equal((await handler!({ text: '围辣转转火锅电费500元' })).text, '已登记：A01 围辣转转火锅 500 元。')
+  assert.equal((await handler({ text: '围辣转转火锅电费500元' })).text, '已登记：A01 围辣转转火锅 500 元。')
 })
 
-test('does not guess image content', async () => {
+void test('does not guess image content', async () => {
   let handler: ((message: { text: string; imageUrl?: string }) => Promise<{ text: string }>) | undefined
   const stream = { connect: async () => {}, close: async () => {}, onMessage(next: typeof handler) { handler = next; return () => {} } }
   createFinanceDingtalkBridge({ registerPayment: () => { throw new Error('must not parse image') } }, stream)

@@ -31,6 +31,14 @@ export function createDingtalkStreamClient(config: DingtalkConfig): DingtalkStre
   }
 }
 
+/** Read deployment credentials without making missing configuration fatal. */
+export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DingtalkConfig | undefined {
+  const clientId = env.DINGTALK_CLIENT_ID?.trim()
+  const clientSecret = env.DINGTALK_CLIENT_SECRET?.trim()
+  if (!clientId || !clientSecret) return undefined
+  return { clientId, clientSecret, debug: env.DINGTALK_DEBUG === '1' }
+}
+
 async function dispatchRobotMessage(downstream: DWClientDownStream, handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>) {
   if (downstream.headers.topic !== TOPIC_ROBOT) return
   const message = JSON.parse(downstream.data) as RobotMessage
