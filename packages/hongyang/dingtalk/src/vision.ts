@@ -1,4 +1,4 @@
-import { parsePaymentImageExtraction, type PaymentImageExtraction } from '@deepseek-ai/dsh-hy-finance/src/provider/register/image.ts'
+import { parsePaymentImageExtraction, type PaymentImageExtraction } from '@deepseek-ai/dsh-hy-finance'
 
 export interface PaymentVisionRequest {
   readonly imageDataUrl: string

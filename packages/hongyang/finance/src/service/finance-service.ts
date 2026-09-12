@@ -19,6 +19,7 @@ import { buildDailyReport, compareDailyReport, exportDailyReport, type CompareRe
 import { listMerchants } from '../provider/db/repo.ts'
 import { buildVoucher } from '../provider/voucher/build.ts'
 import { merchantBalance, overdue, receivableSummary, todayReceipts, type MerchantBalance, type OverdueRow, type ReceivableSummary, type ReceiptToday } from '../provider/query/dashboard.ts'
+import { registerPaymentFromImage, type PaymentImageExtraction } from '../provider/register/image.ts'
 import { registerPayment, type RegisterResult } from '../provider/register/payment.ts'
 import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
@@ -142,6 +143,14 @@ export class HyFinanceService extends Service {
   overdue(days: number, today: string): OverdueRow[] { return overdue(this.db(), days, today) }
   todayReceipts(date: string): ReceiptToday[] { return todayReceipts(this.db(), date) }
   registerPayment(text: string): RegisterResult { return registerPayment(this.db(), text) }
+  /**
+   * Validate screenshot fields and register through the shared provider.
+   * @param extraction - untrusted vision extraction, validated again before writes.
+   * @returns committed receipt or pending allocation; invalid evidence throws without writing.
+   */
+  registerPaymentFromImage(extraction: PaymentImageExtraction): RegisterResult {
+    return registerPaymentFromImage(this.db(), extraction, { companyName: this.config.companyName })
+  }
 
   /** Every merchant, for pickers. */
   merchants(): Merchant[] {

@@ -28,8 +28,17 @@ export function createDingtalkLlmVisionClient(
       })]
       const assembler = new BlockAssembler()
       const stream = host.llm.stream({ provider: route.provider, model: route.model, messages, maxTokens: 512 })
-      for await (const chunk of stream) assembler.push(chunk)
-      for (const block of assembler.blocks()) if (block.type === 'text') yield block.text
+      let finished = false
+      for await (const chunk of stream) {
+        assembler.push(chunk)
+        if (chunk.type === 'finish') finished = true
+      }
+      if (!finished || assembler.finish.kind !== 'stop') throw new Error('付款图片识别未正常完成，请重试')
+      const blocks = assembler.blocks()
+      if (blocks.some(block => block.type !== 'text' && block.type !== 'reasoning')) {
+        throw new Error('付款图片识别返回了不支持的内容')
+      }
+      for (const block of blocks) if (block.type === 'text') yield block.text
     },
   }
 }

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { FEE_TYPE_ALIASES, type FeeType } from '../../rules/fee-types.ts'
-import { toCents } from '../../rules/tax.ts'
+import { FEE_RULES, FEE_TYPE_ALIASES, type FeeType } from '../../rules/fee-types.ts'
+import { formatCents, toCents } from '../../rules/tax.ts'
 import { newId, type MerchantId, type TransactionId } from '../../service/identifiers.ts'
 import { listMerchants, transaction } from '../db/repo.ts'
 import { allocate } from '../claim/allocate.ts'
@@ -61,11 +61,22 @@ export function parsePaymentText(text: string): ParsedPayment {
 
 export function registerPayment(db: DatabaseSync, text: string): RegisterResult {
   const parsed = parsePaymentText(text)
+  return registerParsedPayment(db, parsed, text)
+}
+
+/**
+ * Save an already parsed payment atomically with its allocation.
+ * @param db - finance database owned by the service.
+ * @param parsed - provider-validated payment fields.
+ * @param evidence - original text or structured extraction for review.
+ * @returns saved receipt and allocation status.
+ */
+export function registerParsedPayment(db: DatabaseSync, parsed: ParsedPayment, evidence: string): RegisterResult {
   return transaction(db, () => {
     const merchant = findMerchant(db, parsed.merchant)
     const id = newId<TransactionId>('txn')
     db.prepare('INSERT INTO "transaction" (id,source,channel,txn_time,amount,payer_name,remark,txn_no,status,confidence,raw) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-      .run(id, 'dingtalk', 'transfer', parsed.date, parsed.amount, parsed.merchant, text, parsed.txnNo, 'pending', merchant === undefined ? 0 : 0.9, text)
+      .run(id, 'dingtalk', 'transfer', parsed.date, parsed.amount, parsed.merchant, evidence, parsed.txnNo, 'pending', merchant === undefined ? 0 : 0.9, evidence)
     if (merchant !== undefined && parsed.feeType !== undefined) {
       allocate(db, { transactionId: id, merchantId: merchant.id, amount: parsed.amount, splits: [{ feeType: parsed.feeType, amount: parsed.amount }], origin: 'dingtalk' })
       db.prepare('UPDATE "transaction" SET status=?,merchant_id=? WHERE id=?').run('manual', merchant.id, id)
@@ -76,4 +87,16 @@ export function registerPayment(db: DatabaseSync, text: string): RegisterResult 
       pending: merchant === undefined || parsed.feeType === undefined,
     }
   })
+}
+
+/**
+ * Format a committed registration for the web and DingTalk consumers.
+ * @param result - provider result; amounts are integer cents.
+ * @returns user-visible registration or pending-review message.
+ */
+export function registrationSummary(result: RegisterResult): string {
+  const amount = formatCents(result.parsed.amount)
+  if (!result.booked) return `已记录 ${amount} 元，请补充商户名和费项后确认。`
+  const fee = result.parsed.feeType === undefined ? '' : FEE_RULES[result.parsed.feeType].label
+  return `已登记：${result.merchantShopNo ?? ''} ${result.merchantName ?? ''} ${fee} ${amount} 元。`
 }
