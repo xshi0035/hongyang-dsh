@@ -12,6 +12,7 @@ import { financeDailyReportTool } from './definitions/report.ts'
 import { financeStatusTool } from './definitions/status.ts'
 import { financeVoucherTool } from './definitions/voucher.ts'
 import { financeQueryTool } from './definitions/query.ts'
+import { financeRegisterTool } from './definitions/register.ts'
 
 /** Cordis plugin name. */
 export const name = 'hy-finance-tools'
@@ -29,4 +30,5 @@ export function apply(ctx: Context): void {
   ctx.tools.register(financeDailyReportTool(ctx.hyFinance))
   ctx.tools.register(financeVoucherTool(ctx.hyFinance))
   ctx.tools.register(financeQueryTool(ctx.hyFinance))
+  ctx.tools.register(financeRegisterTool(ctx.hyFinance))
 }
