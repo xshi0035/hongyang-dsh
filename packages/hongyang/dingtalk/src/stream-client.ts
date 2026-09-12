@@ -39,6 +39,41 @@ export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Din
   return { clientId, clientSecret, debug: env.DINGTALK_DEBUG === '1' }
 }
 
+/** Download a DingTalk robot image and return it as a data URL for vision input. */
+export function createDingtalkImageDownloader(
+  config: DingtalkConfig,
+  fetchImpl: typeof fetch = fetch,
+): DingtalkImageDownloader {
+  let accessToken: string | undefined
+  return {
+    async download(downloadCode) {
+      if (accessToken === undefined) {
+        const tokenResponse = await fetchImpl('https://api.dingtalk.com/v1.0/oauth2/accessToken', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ appKey: config.clientId, appSecret: config.clientSecret }),
+        })
+        if (!tokenResponse.ok) throw new Error(`钉钉 access token 获取失败：${tokenResponse.status}`)
+        const token = (await tokenResponse.json()) as { accessToken?: string }
+        if (!token.accessToken) throw new Error('钉钉 access token 响应缺少 accessToken')
+        accessToken = token.accessToken
+      }
+      const response = await fetchImpl('https://api.dingtalk.com/v1.0/robot/messageFiles/download', {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + accessToken, 'content-type': 'application/json' },
+        body: JSON.stringify({ robotCode: config.clientId, downloadCode }),
+      })
+      if (!response.ok) throw new Error(`钉钉图片下载地址获取失败：${response.status}`)
+      const payload = (await response.json()) as { downloadUrl?: string }
+      if (!payload.downloadUrl) throw new Error('钉钉图片下载响应缺少 downloadUrl')
+      const image = await fetchImpl(payload.downloadUrl)
+      if (!image.ok) throw new Error(`钉钉图片内容下载失败：${image.status}`)
+      const bytes = Buffer.from(await image.arrayBuffer()).toString('base64')
+      return `data:${image.headers.get('content-type') ?? 'image/jpeg'};base64,${bytes}`
+    },
+  }
+}
+
 async function dispatchRobotMessage(
   downstream: DWClientDownStream,
   handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>,
