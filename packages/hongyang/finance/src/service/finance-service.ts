@@ -20,7 +20,7 @@ import { listMerchants } from '../provider/db/repo.ts'
 import { buildVoucher } from '../provider/voucher/build.ts'
 import { merchantBalance, overdue, receivableSummary, todayReceipts, type MerchantBalance, type OverdueRow, type ReceivableSummary, type ReceiptToday } from '../provider/query/dashboard.ts'
 import { registerPaymentFromImage, type PaymentImageExtraction } from '../provider/register/image.ts'
-import { registerPayment, type RegisterResult } from '../provider/register/payment.ts'
+import { parsePaymentText, registerPayment, type RegisterResult } from '../provider/register/payment.ts'
 import type { AllocationOrigin, FinanceCounts, ImportKind, Merchant } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -142,6 +142,7 @@ export class HyFinanceService extends Service {
   merchantBalance(query: string): MerchantBalance[] { return merchantBalance(this.db(), query) }
   overdue(days: number, today: string): OverdueRow[] { return overdue(this.db(), days, today) }
   todayReceipts(date: string): ReceiptToday[] { return todayReceipts(this.db(), date) }
+  parsePayment(text: string) { return parsePaymentText(text) }
   registerPayment(text: string): RegisterResult { return registerPayment(this.db(), text) }
   /**
    * Validate screenshot fields and register through the shared provider.

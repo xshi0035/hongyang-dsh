@@ -39,7 +39,7 @@ export * from './rules/tax.ts'
 export * from './rules/summary.ts'
 export type { PaymentImageExtraction, ImageRegistrationOptions } from './provider/register/image.ts'
 export { parsePaymentImageExtraction, registerPaymentFromImage } from './provider/register/image.ts'
-export { registrationSummary } from './provider/register/payment.ts'
+export { parsePaymentText, registrationSummary } from './provider/register/payment.ts'
 
 /** Cordis plugin name. */
 export const name = 'hy-finance'
