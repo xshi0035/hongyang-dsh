@@ -17,7 +17,20 @@ export function createFinanceDingtalkBridge(
   stream: DingtalkStreamClient,
   vision?: PaymentVisionClient,
 ): DingtalkStreamClient {
+  const pending = new Map<string, string>()
   const handler = async (message: DingtalkTextMessage): Promise<DingtalkReply> => {
+    const key = `${message.conversationId}:${message.userId}`
+    const confirm = message.text.match(/^(?:确认|确定|选择)\s*([A-Za-z0-9_-]+)/u)
+    if (confirm !== null) {
+      const original = pending.get(key)
+      if (original === undefined) return { text: '当前没有待确认的付款，请先发送金额和费项。' }
+      pending.delete(key)
+      try {
+        return { text: registrationSummary(service.registerPayment(`${original} 商户编号 ${confirm[1] ?? ''}`)) }
+      } catch (error) {
+        return { text: '确认登记失败：' + (error instanceof Error ? error.message : '请重新发送') }
+      }
+    }
     if (message.text.trim() === '' && message.imageUrl === undefined) {
       return { text: '请补充付款金额和商户，例如“围辣转转火锅，电费500元”。' }
     }
@@ -34,6 +47,7 @@ export function createFinanceDingtalkBridge(
         const needle = message.text.trim().toLowerCase()
         const candidates = service.merchants().filter(m => needle === '' || `${m.shopNo} ${m.name} ${m.brand}`.toLowerCase().includes(needle) || needle.includes(m.shopNo.toLowerCase()) || needle.includes(m.name.toLowerCase())).slice(0, 5)
         const choices = candidates.length === 0 ? '请补充商户名称或编号。' : candidates.map(m => `【${m.shopNo}】${m.name}${m.brand ? `（${m.brand}）` : ''}`).join('、')
+        pending.set(key, message.text)
         return { text: `已识别金额和费项，但需要确认商户。候选：${choices} 回复“确认 编号”后再登记。` }
       }
       return { text: registrationSummary(result) }
