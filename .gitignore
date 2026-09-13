@@ -47,3 +47,7 @@ native/system/test/bin/
 
 # Hongyang demo: client financial samples stay local
 docs/hongyang/samples/
+
+# Local demo credentials and restored runtime data
+.env.local
+.demo-home/
