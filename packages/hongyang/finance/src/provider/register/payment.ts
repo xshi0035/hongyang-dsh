@@ -28,7 +28,7 @@ function dateOf(text: string): string {
   return [year ?? '', month?.padStart(2, '0') ?? '', day?.padStart(2, '0') ?? ''].join('-')
 }
 function amountOf(text: string): number {
-  const match = text.match(/(?:¥|￥)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:元|块)/)
+  const match = text.match(/(?:¥|￥)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:元|块)?/)
     ?? text.match(/(?:金额|收款)[：:\s]*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/)
   const amount = toCents(match?.[1] ?? '')
   if (amount === undefined || amount <= 0) throw new Error('付款登记需要正数金额，例如“电费 500 元”')
