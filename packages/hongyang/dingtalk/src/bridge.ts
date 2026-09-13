@@ -31,7 +31,14 @@ export function createFinanceDingtalkBridge(
       }
       return { text: registrationSummary(service.registerPayment(message.text)) }
     } catch (error) {
-      return { text: '付款登记未完成：' + (error instanceof Error ? error.message : '请补充文字说明') }
+      const reason = error instanceof Error ? error.message : ''
+      if (reason.includes('需要正数金额')) {
+        return { text: '我识别到这是一笔付款，但还没识别出金额。请用自然语言补充，例如“B1-1003 作业帮电费 200 元”。' }
+      }
+      if (reason.includes('需要正数金额') === false && /(?:电费|水费|租金|物业|经营服务费|停车)/u.test(message.text)) {
+        return { text: '我识别到费项，但还缺商户信息。请补充商户名称或编号，例如“B1-1003 作业帮”。收到后我会列出匹配商户供你确认。' }
+      }
+      return { text: '付款登记未完成：' + (reason || '请补充商户、费项和金额') }
     }
   }
   stream.onMessage(handler)
