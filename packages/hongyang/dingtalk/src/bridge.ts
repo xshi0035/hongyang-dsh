@@ -2,7 +2,7 @@ import { registrationSummary, type HyFinanceService } from '@deepseek-ai/dsh-hy-
 import { extractPaymentFromImage, type PaymentVisionClient } from './vision.ts'
 import type { DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
-type FinanceRegistrationService = Pick<HyFinanceService, 'registerPayment'>
+type FinanceRegistrationService = Pick<HyFinanceService, 'registerPayment' | 'merchants'>
   & Partial<Pick<HyFinanceService, 'registerPaymentFromImage'>>
 
 /**
@@ -29,7 +29,14 @@ export function createFinanceDingtalkBridge(
         const extraction = await extractPaymentFromImage(vision, { imageDataUrl: message.imageUrl, textHint: message.text })
         return { text: registrationSummary(service.registerPaymentFromImage(extraction)) }
       }
-      return { text: registrationSummary(service.registerPayment(message.text)) }
+      const result = service.registerPayment(message.text)
+      if (!result.booked) {
+        const needle = message.text.trim().toLowerCase()
+        const candidates = service.merchants().filter(m => needle === '' || `${m.shopNo} ${m.name} ${m.brand}`.toLowerCase().includes(needle) || needle.includes(m.shopNo.toLowerCase()) || needle.includes(m.name.toLowerCase())).slice(0, 5)
+        const choices = candidates.length === 0 ? '请补充商户名称或编号。' : candidates.map(m => `【${m.shopNo}】${m.name}${m.brand ? `（${m.brand}）` : ''}`).join('、')
+        return { text: `已识别金额和费项，但需要确认商户。候选：${choices} 回复“确认 编号”后再登记。` }
+      }
+      return { text: registrationSummary(result) }
     } catch (error) {
       const reason = error instanceof Error ? error.message : ''
       if (reason.includes('需要正数金额')) {
