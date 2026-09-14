@@ -6,8 +6,10 @@ import { parsePaymentText, registerParsedPayment } from './payment.ts'
 
 /** Preview a conversation without creating a financial transaction. */
 export function previewPayment(db: DatabaseSync, text: string) {
+  const tokens = text.toLowerCase().match(/[a-z0-9][a-z0-9._-]*/gu) ?? []
   const candidates = listMerchants(db).filter(m =>
-    [m.shopNo, m.name, m.brand].some(value => value.trim().length > 1 && text.toLowerCase().includes(value.toLowerCase())))
+    (tokens.includes(m.shopNo.toLowerCase()) && (!/^\d+$/u.test(m.shopNo) || text.includes(`编号 ${m.shopNo}`)))
+    || [m.name, m.brand].some(value => value.trim().length > 1 && text.toLowerCase().includes(value.toLowerCase())))
     .map(m => ({ shopNo: m.shopNo, name: m.name, brand: m.brand }))
   let summary = '金额待补充'
   let ready = false

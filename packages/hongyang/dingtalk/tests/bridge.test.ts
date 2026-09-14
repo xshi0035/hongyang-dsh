@@ -29,6 +29,8 @@ await test('collect, preview, confirm once; isolate users, reject invalid select
   const count = () => db.prepare('SELECT COUNT(*) AS n FROM "transaction"').get()?.n
   try {
     db.exec("INSERT INTO merchant (id,shop_no,name,brand) VALUES ('m','B1-1003','商户法人','作业帮')")
+    db.exec("INSERT INTO merchant (id,shop_no,name,brand) VALUES ('numeric','20','烤生蚝','烤生蚝')")
+    assert.equal(previewPayment(db, '电费200').candidates.length, 0)
     assert.match((await send('你好')).text, /你好/)
     assert.match((await send('电费200')).text, /哪个商户/)
     assert.equal(count(), 0)
