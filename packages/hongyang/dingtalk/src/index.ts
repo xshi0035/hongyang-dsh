@@ -26,7 +26,7 @@ export function apply(ctx: Context): void {
 
 export type * from './types.ts'
 export { createFinanceDingtalkBridge }
-export { createDingtalkImageDownloader, createDingtalkStreamClient, dingtalkConfigFromEnv } from './stream-client.ts'
+export { createDingtalkImageDownloader, createDingtalkStreamClient, dingtalkConfigFromEnv, sendDingtalkInteractiveCard } from './stream-client.ts'
 export { extractPaymentFromImage } from './vision.ts'
 export type { PaymentVisionClient, PaymentVisionRequest } from './vision.ts'
 export { createDingtalkLlmVisionClient } from './llm-vision.ts'

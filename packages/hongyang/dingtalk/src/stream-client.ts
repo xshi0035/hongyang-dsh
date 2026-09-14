@@ -1,5 +1,5 @@
 import { DWClient, TOPIC_CARD, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
-import type { DingtalkCardCallback, DingtalkConfig, DingtalkImageDownloader, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
+import type { DingtalkCardCallback, DingtalkConfig, DingtalkImageDownloader, DingtalkInteractiveCardOptions, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
 /** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
 export function createDingtalkStreamClient(config: DingtalkConfig, imageDownloader?: DingtalkImageDownloader): DingtalkStreamClient {
@@ -67,6 +67,32 @@ export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Din
   const clientSecret = env.DINGTALK_CLIENT_SECRET?.trim()
   if (!clientId || !clientSecret) return undefined
   return { clientId, clientSecret, debug: env.DINGTALK_DEBUG === '1' }
+}
+
+/** Send a published interactive card to the current robot conversation. */
+export async function sendDingtalkInteractiveCard(
+  config: DingtalkConfig,
+  options: DingtalkInteractiveCardOptions,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const tokenResponse = await fetchImpl('https://api.dingtalk.com/v1.0/oauth2/accessToken', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ appKey: config.clientId, appSecret: config.clientSecret }),
+  })
+  if (!tokenResponse.ok) throw new Error(`钉钉 access token 获取失败：${tokenResponse.status}`)
+  const token = (await tokenResponse.json()) as { accessToken?: string }
+  if (!token.accessToken) throw new Error('钉钉 access token 响应缺少 accessToken')
+  const body = {
+    cardTemplateId: options.templateId, robotCode: config.clientId,
+    callbackRouteKey: options.callbackRouteKey, outTrackId: `hy-${Date.now()}`,
+    cardData: { cardParamMap: options.cardData },
+    ...(options.conversationId ? { openConversationId: options.conversationId, conversationType: 2 } : {}),
+    ...(options.userId ? { receiverUserIdList: [options.userId], conversationType: 1 } : {}),
+  }
+  const response = await fetchImpl('https://api.dingtalk.com/v1.0/im/interactiveCards/send', {
+    method: 'POST', headers: { authorization: `Bearer ${token.accessToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`钉钉互动卡片发送失败：${response.status}`)
 }
 
 /** Download a DingTalk robot image and return it as a data URL for vision input. */

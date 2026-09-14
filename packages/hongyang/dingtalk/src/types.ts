@@ -23,6 +23,13 @@ export interface DingtalkConfig {
   readonly clientSecret: string
   readonly debug?: boolean
 }
+export interface DingtalkInteractiveCardOptions {
+  readonly templateId: string
+  readonly conversationId?: string
+  readonly userId?: string
+  readonly cardData: Record<string, string>
+  readonly callbackRouteKey: string
+}
 export interface DingtalkImageDownloader {
   download(downloadCode: string): Promise<string>
 }
