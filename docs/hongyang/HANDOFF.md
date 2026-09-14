@@ -107,7 +107,8 @@ src/
   shared/wire.ts            Host/Client 共享 JSON 类型（卡片元数据）
   client/                   设置卡、待认领卡片、日报表卡片（tool.call.toolview 键 finance_claim / finance_daily_report）
 skills/hy-finance, hy-daily-report, hy-voucher   业务口径技能
-tests/import.smoke.ts       真实数据验收脚本
+tests/rules.spec.ts         纯函数单测（税额/费项别名/摘要模板），不需要样本数据，随时能跑
+tests/import.smoke.spec.ts  真实数据验收（vitest 断言，见 §7），samples 目录不存在时整体 skip
 ```
 
 数据库：`~/.dsh-hongyang/hongyang/finance.db`。改了 schema 就把 `HY_FINANCE_SCHEMA_VERSION` 加一并删掉这个文件重导（没有迁移）。
@@ -180,7 +181,8 @@ tests/import.smoke.ts       真实数据验收脚本
 9. `webServer/plugin.ts` 的 confirm 路由只靠登录 cookie，`sessionId` 由前端给，没校验该会话属于当前用户（单机演示无所谓，交付要补）。
 10. `daily_report` 表每 build 一次插一行，没清理；`rows_json` 会膨胀。
 11. `importRecharge` 把充值记录塞进 `platform_txn`，`platform='wechat'`、`merchant_account='recharge'`，各处靠 `<> 'recharge'` 过滤，是个临时做法；充值记录目前没参与任何计算。
-12. 没有 vitest 用例，只有 `tests/import.smoke.ts`；仓库规范要求真实组合测试，这部分欠着。
+12. ~~没有 vitest 用例~~ 2026-09-13 已转成 `tests/rules.spec.ts`（纯函数）+ `tests/import.smoke.spec.ts`（真实组合，断言化了原来靠人眼看的 §7 基线数字）。没做的：认领/日报表以外的模块（凭证、查询、登记）还没有测试；4/1 那天的日报表比对没有客户确认过的基线数字，测试里只断言"不报错"，不是真的验证正确性。
+17. **`rules/fee-types.ts` 的 `FEE_TYPES` 是 21 个费项，spec.md §3 的原话是"收入日报表格式.xlsx 第 3 行 22 个金额列"**——但交叉验证下来这大概率是 spec.md 那一句手滑数错，不是代码漏列：spec.md 紧接着那句话自己列出的费项名单也只有 21 个；`REPORT_HEADERS`（9 个固定列 + 21 个费项列 + 4 个尾部列）算出来正好是 34，和 CLAUDE.md、HANDOFF 反复讲的"日报表 34 列"对得上——如果真少了一个费项列，总数应该是 33 或者需要从别处再减一列才凑得出 34，但没有这种迹象。**即便如此，没人拿真实 `收入日报表格式.xlsx` 表头逐列核对过**（这台机器上没有样本文件核对不了），"大概率是文档笔误"不等于"已确认"——建议演示前顺手拿真实表头数一遍第 3 行，几分钟的事，比在凭证/日报表列错位之后再排查划算。见 `tests/rules.spec.ts` 里固定当前 21 这个数的那条测试。
 13. `tools/definitions/*.ts` 里各自定义了一个 `JsonValue` 结构类型来绕 `type: 'json'` 的输出校验，应改成从 `@deepseek-ai/dsh-util-values` 引入并加 tsconfig 引用。
 14. 客户端两张卡共用 `PendingClaimsCard.module.css`，样式 token 只用了 `--dsw-alias-*`，没问题，但文件名会误导。
 15. `settings/plugin.ts` 的 `installSection` 改配置会 `reconfigure`，但 `dbPath` 改了要重启才生效，卡片提示里写了。
@@ -192,14 +194,25 @@ tests/import.smoke.ts       真实数据验收脚本
 
 ```bash
 cd /Users/shixin/Desktop/广场dsh/deepseek-harness
-node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts
+pnpm vitest run packages/hongyang/finance/tests
 ```
 
-内存库跑完整链路：导 8 份样本 → 拆分 → 认领 → 4/1、4/3 日报表比对。看这几个数没有倒退：
+**2026-09-13 起，分支基线换成了 `dev`**（从 `弘阳Demo交付-2026-09-13/hongyang-test.bundle` 的 `test` 分支拉出来的，往前的开发继续在这条线上，见下方"分支基线"一条）。`tests/import.smoke.ts` 那个打印数字靠人眼比对的脚本已经删掉，改成两个 vitest 文件，**已经在 `dev` 分支上用真实样本数据跑通并逐条核对过**：
 
-- `split matched 19 unmatched 3`（3 笔都是 2026-04-01，对应 3/31）
-- `claims run: bankAuto 12, parkingAuto 4, wechatElectricity 87, posAuto 6, pending 18`
-- `report 2026-04-03: matched 11 missing 3 extra 1 amount 0`
+- `tests/rules.spec.ts`：纯函数（税额、费项别名、摘要模板），不需要样本数据，任何机器上都能跑，也进 CI。72 条里的 64 条在这。
+- `tests/import.smoke.spec.ts`：内存库跑完整链路（导 8 份样本 → 拆分 → 认领 → 日报表构建/导出/比对）。以下是在 `dev` 分支实测确认的数字：
+  - `split matched 19 unmatched 3`。
+  - `claims run: bankAuto 12, parkingAuto 4, wechatElectricity 87, posAuto 7, pending 18`——posAuto 是 7，其中一笔是**"发发桌球停车（预存）"以 0.88 置信度自动认领给"湖南发发竞技"**——正好是已知隐患 #2 说的"品牌挂两个签约主体，自动认领可能选错主体"那个场景，不是假设，是真实数据里正在发生的自动入账，建议演示前人工确认这笔选对了没有。
+  - **涂小兰那笔**：spec.md §3 写的是"人工认领后记住→炊牛大烩"，实测她的收款被 L1 精确户名匹配**自动**认领（置信度 0.95），对应商户的 `brand` 字段是**柴煲煲**，不是炊牛大烩——同一笔交易（金额 20062.56 分毫不差），判断是 spec.md 那句例子里品牌名写错了，不是真的存在两个"涂小兰"。建议顺手把 spec.md §3 那处改成"柴煲煲"。
+  - `report 2026-04-03: matched 10 missing 3 extra 1 amount 1`——**`dev` 上的 `compareDailyReport` 比 `hongyang-demo` 严格**：不再只比对行小计，还按费项逐项比对，因此抓出了一个之前被算作"匹配"、实际是错的案例：长沙奥龙鞋业（2F-2029）生成的日报表把 55743.60 全记成租金，台账实际拆成租金 21918.60 + 经营服务费 33825.00——正是已知隐患 #1 说的多月/多费项拆分顺序问题，现在被测试真实抓出来了，不是比对逻辑退步。
+  - `2026-04-01`：没有客户确认过的基线，测试只断言"能生成、不报错"，不是验证正确性。
+  - 费项科目：`dev` 上电费/水费预收科目已确认（2203.30 / 2203.31），`rules.spec.ts` 里"未确认科目清单"从 12 项收窄到 9 项（`multi_warehouse / multi_ad / fixed_spot / temp_spot / parking / decor_deposit / fire_water / other / coupon`）。
+
+**分支基线**：`dev` 分支（合并基点是本仓库 `968167372a`，即本文件最初写完时的 `hongyang-demo` HEAD）比 `hongyang-demo` 多 30 个提交，已经做完 HANDOFF §5 原来列的第 5/6/7 步（凭证生成/比对、`hy-query`、`hy-register` 文字+图片登记、完整 `hy-dingtalk` Stream 接入）。**本文件第 4、5 节描述的"已完成/未完成"状态是 `hongyang-demo` 当时的快照，在 `dev` 上已经过时**——`dev` 分支的能力状态和已知问题以交付包里的 `交付说明.md`（英文版 `DEMO_DELIVERY.md`）为准，尤其是"能力与开发清单"那张表；这两份文档还没合并，谁接手 `dev` 上的开发建议先读 `交付说明.md` 再回来对照本文件 §6 的隐患清单，两边有重叠但侧重点不同。
+
+**一个需要留意的测试约定问题**：`dev` 分支自己新增的 `tests/query.test.ts`、`tests/register.test.ts`、`tests/register-image.test.ts`、`tests/voucher-audit.test.ts` 用的是 Node 内建 `node:test`（`import { test } from 'node:test'`），不是仓库标准的 vitest。`vitest.config.ts` 的扫描规则是 `packages/*/*/tests/**/*.spec.{ts,tsx}`，只认 `.spec.ts`——也就是说 `pnpm vitest run` / `pnpm run test` **不会跑到这四个文件**，它们目前处于"写了但不在常规测试流程里"的状态。要不要把它们改名成 `.spec.ts` 并迁到 vitest（这样才会被 CI/`pnpm test` 真正执行），是下一步该决定的事，这次 PR 没有动它们。
+
+  **`import.smoke.spec.ts` 依赖 `docs/hongyang/samples/`（git 忽略，含客户真实数据），没有这份数据的机器上整个 suite 会自动 skip，不会报错也不会假装通过——运行结果里如果看到这些用例是 skip 而不是 pass，说明没跑到真实数据，不代表校验通过了。**
 
 界面验收走 `docs/hongyang/spec.md` §4，用 `/Users/shixin/Desktop/sampel` 工作区。
 
@@ -207,4 +220,4 @@ node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts
 
 ## 8. 给 Codex 的第一条指令
 
-> 先读 `docs/hongyang/HANDOFF.md`，再读 `docs/hongyang/spec.md`、`docs/hongyang/design.md` 和 `packages/hongyang/finance/README.md`。然后跑 `node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts`，把输出里的关键数字和 HANDOFF §7 的基线对一遍，告诉我是否一致。接着通读 `packages/hongyang/finance/src/`，对照 HANDOFF §6 的 16 条隐患，逐条说明你是否认同、是否有遗漏，但**先不要改任何代码**。确认完之后再开始第 5 步（凭证），按 HANDOFF §5 的描述做，验收对象是 2026-04-03 的凭证与 `voucher_row` 表里客户凭证的逐行比对。所有金额计算放在 `provider/` 里，模型不碰钱。每完成一步跑一次 smoke 脚本，lint 通过后提交到 `hongyang-demo` 分支。
+> 先读 `docs/hongyang/HANDOFF.md`，再读 `docs/hongyang/spec.md`、`docs/hongyang/design.md`、`交付说明.md`（`dev` 分支当前能力状态以这份为准）和 `packages/hongyang/finance/README.md`。然后在 `dev` 分支上跑 `pnpm vitest run packages/hongyang/finance/tests`，确认 §7 列的断言全部通过（不是 skip——skip 说明样本数据没就位）。接着通读 `packages/hongyang/finance/src/`，对照 HANDOFF §6 的 16 条隐患和交付说明的能力清单，逐条说明你是否认同、是否有遗漏，但**先不要改任何代码**。所有金额计算放在 `provider/` 里，模型不碰钱。每完成一步跑一次测试，lint 通过后提交到 `dev` 分支（走 PR，不要直接 commit）。
