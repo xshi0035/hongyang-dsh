@@ -6,7 +6,7 @@
  * @module @deepseek-ai/dsh-hy-finance/tools/definitions/claim
  */
 
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { formatCents, toCents } from '../../rules/tax.ts'
 import { FEE_TYPES, FEE_RULES, type FeeType } from '../../rules/fee-types.ts'
@@ -57,7 +57,7 @@ function queueText(pending: readonly PendingItemWire[], total: number, unlabelle
  * @param service - the finance service.
  * @returns the tool.
  */
-export function financeClaimTool(service: HyFinanceService) {
+export function financeClaimTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_claim',
     description: '收款认领。action=run：对所有未认领收款跑三层匹配（付款人映射/户名一致、备注里的商户或铺位、金额等于未收），置信度≥0.85 的自动登记并按未收顺序拆分费项，其余进待认领队列；同时把微信电费订单按“商户-铺位”落到商户，停车费到账记停车费。action=list：列出待认领队列和建议。action=confirm：把一笔待认领登记到某铺位（itemId 来自队列，shopNo 为铺位号；可带 splits 指定费项金额），并记住该付款人。action=learn：只记住付款人→铺位映射。金额单位元。',
@@ -107,21 +107,21 @@ export function financeClaimTool(service: HyFinanceService) {
           ]
           for (const a of meta.autoBooked) lines.push(`  ✓ ${a.payerName} ${a.amount} 元 → ${a.shopNo} ${a.name}：${a.booked}（置信 ${String(a.confidence)}）`)
           lines.push(...queueText(pending, r.pending.length, unlabelled))
-          return { action: 'run', summary: lines.join('\n'), pendingTotal: r.pending.length, meta: meta as unknown as JsonValue }
+          return Promise.resolve({ action: 'run', summary: lines.join('\n'), pendingTotal: r.pending.length, meta: meta as unknown as JsonValue })
         }
         case 'list': {
           const q = service.listPending()
           const pending = pendingWire(q.pending)
           const unlabelled = unlabelledWire(q.unlabelledPos)
           const meta: ClaimMetaWire = { card: 'hy-finance/claims', action: 'list', pending, unlabelledPos: unlabelled, autoBooked: [] }
-          return { action: 'list', summary: queueText(pending, q.pending.length, unlabelled).join('\n'), pendingTotal: q.pending.length, meta: meta as unknown as JsonValue }
+          return Promise.resolve({ action: 'list', summary: queueText(pending, q.pending.length, unlabelled).join('\n'), pendingTotal: q.pending.length, meta: meta as unknown as JsonValue })
         }
         case 'confirm': {
           if (args.itemId === undefined) throw new Error('confirm 需要 itemId')
           const splits = args.splits?.map((s) => {
             const cents = toCents(s.amount)
             if (cents === undefined) throw new Error(`金额无效：${String(s.amount)}`)
-            return { feeType: s.feeType as FeeType, amount: cents, periodStart: s.periodStart, periodEnd: s.periodEnd }
+            return { feeType: s.feeType, amount: cents, periodStart: s.periodStart, periodEnd: s.periodEnd }
           })
           const r = service.confirmClaim(args.itemId, args.shopNo ?? '', splits, 'user')
           const q = service.listPending()
@@ -134,13 +134,13 @@ export function financeClaimTool(service: HyFinanceService) {
             confirmed: { itemId: r.itemId, shopNo: shop, name, booked: r.booked },
           }
           const summary = `已登记 ${r.itemId} → ${shop} ${name}：${r.booked}${r.learned ? '；已记住该付款人，下次自动认领' : ''}。待认领剩余 ${String(q.pending.length)} 笔。`
-          return { action: 'confirm', summary, pendingTotal: q.pending.length, meta: meta as unknown as JsonValue }
+          return Promise.resolve({ action: 'confirm', summary, pendingTotal: q.pending.length, meta: meta as unknown as JsonValue })
         }
         case 'learn': {
           if (args.payerName === undefined || args.shopNo === undefined) throw new Error('learn 需要 payerName 和 shopNo')
           const m = service.learnPayer(args.payerName, args.shopNo)
           const meta: ClaimMetaWire = { card: 'hy-finance/claims', action: 'learn', pending: [], unlabelledPos: [], autoBooked: [] }
-          return { action: 'learn', summary: `已记住：${args.payerName} → ${m.shopNo} ${m.name}${m.brand ? `（${m.brand}）` : ''}。`, pendingTotal: 0, meta: meta as unknown as JsonValue }
+          return Promise.resolve({ action: 'learn', summary: `已记住：${args.payerName} → ${m.shopNo} ${m.name}${m.brand ? `（${m.brand}）` : ''}。`, pendingTotal: 0, meta: meta as unknown as JsonValue })
         }
         default: {
           const never: never = args.action
@@ -151,7 +151,11 @@ export function financeClaimTool(service: HyFinanceService) {
   })
 }
 
-/** Chinese label of a fee, exported for the DingTalk bridge's replies. */
+/**
+ * Chinese label of a fee, exported for the DingTalk bridge's replies.
+ * @param fee - Supported finance fee type.
+ * @returns Configured fee display label.
+ */
 export function feeLabelOf(fee: FeeType): string {
   return FEE_RULES[fee].label
 }

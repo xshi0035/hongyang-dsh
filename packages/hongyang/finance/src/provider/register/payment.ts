@@ -5,6 +5,9 @@ import { newId, type MerchantId, type TransactionId } from '../../service/identi
 import { listMerchants, transaction } from '../db/repo.ts'
 import { allocate } from '../claim/allocate.ts'
 
+/**
+ * Parsed payment fields; amount is integer cents and fee may need clarification.
+ */
 export interface ParsedPayment {
   readonly amount: number
   readonly date: string
@@ -12,6 +15,9 @@ export interface ParsedPayment {
   readonly feeType: FeeType | undefined
   readonly txnNo: string
 }
+/**
+ * Saved payment identity and its booked or pending allocation status.
+ */
 export interface RegisterResult {
   readonly transactionId: TransactionId
   readonly parsed: ParsedPayment
@@ -65,12 +71,23 @@ function findMerchant(db: DatabaseSync, text: string): { id: MerchantId; shopNo:
   return found === undefined ? undefined : { id: found.id, shopNo: found.shopNo, name: found.name }
 }
 
+/**
+ * Parse one payment, rejecting absent, invalid, or multiple amounts.
+ * @param text - User payment text or accumulated conversation draft.
+ * @returns Parsed amount, date, merchant, fee, and transaction reference.
+ */
 export function parsePaymentText(text: string): ParsedPayment {
   const feeType = feeOf(text)
   const amount = amountOf(text)
   return { amount, date: dateOf(text), merchant: merchantOf(text, feeType), feeType, txnNo: text.match(/(?:单号|订单号|交易号)[：:\s]*([A-Za-z0-9_-]+)/)?.[1] ?? '' }
 }
 
+/**
+ * Parse and save a payment, allocating when merchant and fee resolve.
+ * @param db - Open finance database.
+ * @param text - User payment text or accumulated conversation draft.
+ * @returns Saved receipt and allocation status.
+ */
 export function registerPayment(db: DatabaseSync, text: string): RegisterResult {
   const parsed = parsePaymentText(text)
   return registerParsedPayment(db, parsed, text)
@@ -86,7 +103,7 @@ export function registerPayment(db: DatabaseSync, text: string): RegisterResult 
 export function registerParsedPayment(db: DatabaseSync, parsed: ParsedPayment, evidence: string): RegisterResult {
   return transaction(db, () => {
     const merchant = findMerchant(db, parsed.merchant)
-    const id = newId<TransactionId>('txn')
+    const id = newId('txn')
     db.prepare('INSERT INTO "transaction" (id,source,channel,txn_time,amount,payer_name,remark,txn_no,status,confidence,raw) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
       .run(id, 'dingtalk', 'transfer', parsed.date, parsed.amount, parsed.merchant, evidence, parsed.txnNo, 'pending', merchant === undefined ? 0 : 0.9, evidence)
     if (merchant !== undefined && parsed.feeType !== undefined) {

@@ -2,12 +2,20 @@ import { BlockAssembler, createUserMessage, type LlmRuntime } from '@deepseek-ai
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { PaymentVisionClient, PaymentVisionRequest } from './vision.ts'
 
+/**
+ * Host services required to store payment evidence and invoke a vision model.
+ */
 export interface DingtalkLlmVisionHost {
   readonly llm: Pick<LlmRuntime, 'stream'>
   readonly attachments: Pick<AttachmentStore, 'saveImage'>
 }
 
-/** Adapt the host LLM and durable image store to the payment vision contract. */
+/**
+ * Adapt the host LLM and durable image store to the payment vision contract.
+ * @param host - Host attachment and LLM services.
+ * @param route - Configured provider and model used for extraction.
+ * @returns A vision client yielding extraction text.
+ */
 export function createDingtalkLlmVisionClient(
   host: DingtalkLlmVisionHost,
   route: { provider: string; model: string },

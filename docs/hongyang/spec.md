@@ -1,23 +1,36 @@
-# 衡阳弘阳广场 · 财务 Agent Demo 开发规划（v2）
+---
+description: "Historical Hongyang demo requirements with a link to the current implementation state."
 
-> 截止：2026-09-13 演示 | 开发窗口：9/9 晚 – 9/12
-> 底座：dsh（agent 运行时，本质不变）| 我们做：插件（业务口径 + 工具 + artifact）| 输入口：钉钉机器人
-> 客户主体：衡阳诚远商业管理有限公司 | 财务系统：金蝶云星空 | 对接：周晓、贺红富（登记）、华新玉（做账）
-> 样本：建行流水 xls（2035/2038 两个 sheet）、星空凭证 xlsx（21 列）、**收入日报表格式 xlsx（34 列，客户指定最终产物）**、运营应收表截图
+kind: "reference"
+---
 
-**样本文件**（本目录 `samples/`）：
+# Hengyang Hongyang Plaza · finance agent demo plan (v2)
 
-| 文件 | 说明 |
+English | [中文](spec.zh.md)
+
+Historical demo plan from September 2026. Package names, proposed APIs, schedules, and acceptance targets below describe planning intent, not verified delivery. Use the [2026-09-14 handoff](CLAUDE_HANDOFF_2026-09-14.md) and package READMEs for the current implementation.
+
+> Deadline: demo on 2026-09-13 | Development window: evening of September 9–12
+
+> Foundation: dsh agent runtime, unchanged | Deliverables: plugins (business rules, tools, artifacts) | Input: DingTalk robot
+
+> Customer entity: 衡阳诚远商业管理有限公司 | Accounting system: Kingdee Cloud Galaxy | Contacts: Zhou Xiao, He Hongfu (registration), Hua Xinyu (accounting)
+
+> Samples: CCB xls (2035/2038 sheets), Galaxy vouchers (21 columns), **daily income report xlsx (34 columns, the customer's required output)**, operations receivables screenshot
+
+**Sample files** (in this directory's `samples/`):
+
+| File | Description |
 |---|---|
-| `samples/建行流水_2026-04-01_08.xls` | 建行账户流水，2026-04-01 ~ 04-08，2035/2038 两个 sheet |
-| `samples/凭证_2026-04-01_08.xlsx` | 金蝶云星空导出凭证，2026-04-01 ~ 04-08，21 列，客户人工做账结果 |
-| `samples/收入日报表格式.xlsx` | 贺部长手工登记的收入日报表格式，34 列，客户指定最终产物 |
-| `samples/应收表_截图.png` | 运营部应收表（账期 / 铺位号 / 商户 / 品牌 / 费项 / 应收 / 已收 / 未收） |
-| `samples/付款截图_银联商务.jpg` | 运营部手机拍的银联商务支付成功页，钉钉上报 `parse_payment_screenshot` 的输入样例 |
+| `samples/建行流水_2026-04-01_08.xls` | CCB transactions, April 1–8, 2026; 2035/2038 sheets |
+| `samples/凭证_2026-04-01_08.xlsx` | Customer's manually prepared Kingdee Cloud Galaxy vouchers, April 1–8, 21 columns |
+| `samples/收入日报表格式.xlsx` | Director He's 34-column daily income report, the required output format |
+| `samples/应收表_截图.png` | Operations receivables: period, shop, merchant, brand, fee, due, received, unpaid |
+| `samples/付款截图_银联商务.jpg` | Operations photo of a UnionPay payment-success page, input example for DingTalk `parse_payment_screenshot` |
 
 ---
 
-## 0. 产品形态（先对齐，不再跑偏）
+## 0. Product form
 
 ```
 运营部（手机钉钉）                      财务部（浏览器）
@@ -35,33 +48,38 @@
                                        SQLite
 ```
 
-- dsh 不改逻辑，只换壳（去 dsh / DeepSeek 痕迹，名字叫"弘阳 AI 财务助手"）+ 换模型 provider
-- 一切业务能力都是插件，通过 dsh-platform 分发安装——这就是"平台 + 插件"卖点的实证
-- 钉钉机器人和浏览器会话进的是同一个 agent、同一套工具、同一个库
-- **主产物链**：上报/流水 → 认领拆分 → **收入日报表**（贺部长现在手工做的 34 列表，按日一张）→ 凭证（从日报表生成）。日报表是客户指定的最终产物格式，见 `samples/收入日报表格式.xlsx`
+- Keep dsh logic and change branding to “弘阳 AI 财务助手”, removing dsh/DeepSeek branding; switch the model provider.
+
+- Deliver every business capability as a plugin installed through dsh-platform, demonstrating platform-plus-plugin distribution.
+
+- DingTalk and browser conversations should share the same agent, tools, and database.
+
+- **Output sequence:** payment reports/statements → claims and splitting → **daily income report** (Director He's 34-column sheet, one per day) → vouchers generated from the report. The customer-required format is `samples/收入日报表格式.xlsx`.
 
 ---
 
-## 1. 底座两处改动
+## 1. Two platform changes
 
-### 1.1 换壳（去痕迹）
-grep 清单：产品名 / title / favicon / logo / 登录页品牌 / 页脚 / 关于 / 版本 / GitHub 链接 / package.json / 404·500 文案 / console.log / 对话气泡里的模型名。统一换成"弘阳广场 · AI 财务助手"，模型名显示"财务助手"。
-不动：路由、session 机制、tool 调用协议、artifact 渲染。
+### 1.1 Branding
 
-### 1.2 模型 Provider 抽象
+Search checklist: product name, title, favicon, logo, login branding, footer, about, version, GitHub links, package.json, 404/500 copy, console output, and model names in bubbles. Use “弘阳广场 · AI 财务助手” and display the model as “财务助手”.
+
+Leave routes, sessions, tool-call protocol, and artifact rendering unchanged.
+
+### 1.2 Model provider abstraction
 ```ts
+// Illustrative planning type; the running implementation uses the dsh LLM service.
 interface ModelProvider {
-  chat(messages, tools?)                       // agent loop
-  vision(image, prompt)                        // 截图识别
-  extract<T>(text, schema)                     // 结构化抽取
+  chat(messages: readonly unknown[], tools?: readonly unknown[]): Promise<unknown>
+  vision(image: Uint8Array, prompt: string): Promise<string>
+  extract<T>(text: string, schema: { parse(value: unknown): T }): Promise<T>
 }
-// providers/anthropic.ts（演示用）  providers/openai-compat.ts  providers/deepseek.ts（交付切回）
 ```
-原则：模型只做识别、抽取、对话；金额、税、分摊、凭证全部由工具里的确定性代码算。**模型不碰钱。**
+The model only recognizes, extracts, and converses; deterministic tool code calculates amounts, tax, allocations, and vouchers. **The model performs no financial arithmetic.**
 
 ---
 
-## 2. 数据模型（插件共享 SQLite）
+## 2. Data model (shared plugin SQLite)
 
 ```
 merchant        id, shop_no("5002A"), name("炊牛大烩"), brand, floor
@@ -76,137 +94,183 @@ voucher_line    date, no, summary, account_code, account_name, debit, credit, al
 
 ---
 
-## 3. 插件清单（6 个 dsh 插件）
+## 3. Plugin plan (six dsh plugins)
 
-每个插件 = `skill.md`（业务口径，注入 system prompt）+ `tools/`（函数）+ `artifacts/`（可选渲染模板）。
+Each planned plugin contains `skill.md` business rules for the system prompt, `tools/` functions, and optional `artifacts/` rendering templates.
 
-### hy-finance-core —— 业务口径（先做，其他插件都依赖它）
+### hy-finance-core — business rules, required by other plugins
 
-**skill.md 内容**（这是让 dsh "懂财务"的部分）：
-- 公司主体、收款账户：银行 `1002.02` 建行…2038；POS/扫码 `1012.08`
-- 费项 → 税率 → 科目表：
+**skill.md contents** (the financial rules dsh needs):
 
-| fee_type | 中文 | 税率 | 预收科目 |
+- Legal entity and receiving accounts: bank `1002.02` CCB …2038; POS/QR `1012.08`.
+
+- Fee → tax rate → ledger account:
+
+| fee_type | Label | Tax rate | Advance-payment account |
 |---|---|---|---|
-| rent | 租金 | 9% | 2203.01.01 |
-| service | 经营服务费 | 6% | 2203.01.02 |
-| promo | 推广费 | 6% | 2203.01.03 |
-| multi_fixed / multi_ad | 多经-固定服务费 / 广告位 | 6% | TBD |
-| electricity | 电费 | 13% | TBD |
-| water | 水费 | 3% | TBD |
-| decor_mgmt / garbage / cert | 装修管理费 / 垃圾清运费 / 证件工本费 | 6% | 2203.06 / 2203.11 / 2203.05 |
-| deposit / earnest / guarantee | 押金 / 诚意金 / 质保金 | 无税 | 2241.04 / 2241.02 / 2241.05 |
-| unclaimed | 暂收款 | 无税 | 2203.01.05 |
-| multi_warehouse / fixed_spot / temp_spot | 多经-仓库 / 固定点位服务费 / 临时点位服务费 | 6% | TBD |
-| water_post / elec_post / elec_pre | 后付水费 / 后付电费 / 预付电费 | 3% / 13% / 13% | TBD |
-| parking / decor_deposit / fire_water / other / coupon | 停车费 / 装修押金 / 消防泄水费 / 其他 / 购券 | 按科目表 | TBD |
+| rent | Rent | 9% | 2203.01.01 |
+| service | Operating service fee | 6% | 2203.01.02 |
+| promo | Promotion | 6% | 2203.01.03 |
+| multi_fixed / multi_ad | Other operations: fixed service / advertising | 6% | TBD |
+| electricity | Electricity | 13% | TBD |
+| water | Water | 3% | TBD |
+| decor_mgmt / garbage / cert | Decoration management / waste disposal / certificate cost | 6% | 2203.06 / 2203.11 / 2203.05 |
+| deposit / earnest / guarantee | Deposit / earnest money / quality guarantee | Untaxed | 2241.04 / 2241.02 / 2241.05 |
+| unclaimed | Unallocated receipts | Untaxed | 2203.01.05 |
+| multi_warehouse / fixed_spot / temp_spot | Warehouse / fixed location service / temporary location service | 6% | TBD |
+| water_post / elec_post / elec_pre | Postpaid water / postpaid electricity / prepaid electricity | 3% / 13% / 13% | TBD |
+| parking / decor_deposit / fire_water / other / coupon | Parking / decoration deposit / fire-water discharge / other / coupons | Per account table | TBD |
 
-  费项枚举以 `收入日报表格式.xlsx` 第 3 行 22 个金额列为准（列序固定）：租金, 经营服务费, 宣传服务费-推广, 多经收入-仓库, 多经收入-广告位, 固定点位-服务费收入, 临时点位收入-服务费收入, 后付水费, 后付电费, 预付电费, 装修管理费, 垃圾清运费, 证件工本费, 停车费, 诚意金, 装修押金, 保证金, 暂收款, 消防泄水费, 其他, 购券
+  The fee enumeration follows the 22 amount columns stated in row 3 of `收入日报表格式.xlsx`, in fixed order: rent, operating service, promotion, warehouse, advertising, fixed location service, temporary location service, postpaid water, postpaid electricity, prepaid electricity, decoration management, waste disposal, certificates, parking, earnest money, decoration deposit, guarantee, unallocated receipts, fire-water discharge, other, coupons.
 
-  销项税科目 `2221.01.02.06`（6%）`2221.01.02.09`（9%），13%/3% 待确认
-- 摘要模板：`收到商户{费项}{期间}-{铺位号}&{商户名}`；暂收款：`收到暂收款项-{付款人}`
-- 拆分规则：上报有明细按明细；否则按应收未收顺序 rent > service > promo > electricity > water；余额挂暂收款
-- 分摊：跨月按自然月、按天数比例
-- 税：`tax = round(incl / (1+r) * r, 2)`
-- 收款渠道识别规则：对方户名含"财付通"→ 微信日结；"银联商务"→ POS 日结（备注解析手续费）；"捷停车"→ 停车费；"抖音"→ 忽略
-- 术语：运营部 / 登记（贺部长）/ 做账（华新玉）/ 应收表 / 暂收款
+  Output-VAT accounts: `2221.01.02.06` (6%) and `2221.01.02.09` (9%); 13%/3% were unconfirmed in this plan.
 
-**tools**：`get_fee_rules()` `get_account(fee_type)` `calc_tax(amount, fee_type)`
+- Summary template: `收到商户{费项}{期间}-{铺位号}&{商户名}`; unallocated receipts: `收到暂收款项-{付款人}`.
 
-### hy-import —— 导入工具
-`import_bank_xls(path)`：只读 sheet 建行2038、贷方>0；按渠道规则分类写 transaction
-`import_wechat_bill(path, mch_id)`、`import_unionpos_bill(path)`：明细写 transaction(source=wechat/unionpos)，并与流水里的日结汇总对总额
-`import_receivable_xlsx(path)`：upsert merchant + receivable
-`import_register_xlsx(path)`：贺部长登记表，仅用于比对
-对话触发："把这份流水导进来"（用户拖文件到会话）
+- Splitting: use supplied details first; otherwise offset receivables in rent > service > promo > electricity > water order; put the remainder in unallocated receipts.
 
-### hy-claim —— 认领引擎
-`run_claim(scope=today|all)`：三层匹配
-- L1 精确：对方户名 ≈ 商户/品牌名（去公司后缀）；或 payer_mapping 命中 → conf 1.0
-- L2 备注解析：`extract()` 抽 {商户, 费项, 期间}，再模糊匹配 merchant → conf 0.7–0.9
-  例：李栋"飞科5-6月租金"、黎玉"支付衡阳弘阳广场李宁店电费"、付勇"潮正和水费"、刘鑫"愤怒弹珠房租"、钟爱虹"开心哈乐4月租金"
-- L3 金额：= 某商户某期未收 ±1 元 → 预填建议，仍进队列
-- 未命中 → pending，挂暂收款。例：张先涛 3000（备注只有名字）、涂小兰 20062.56（无备注，人工认领后记住→炊牛大烩）
-`list_pending()`：返回待认领列表 → 渲染 artifact `pending_claims_table`（每行下拉选商户 + 确认按钮）
-`confirm_claim(txn_id, merchant_id, split?)`：写 allocation + payer_mapping(confirmed)
+- Allocation: use calendar months and day proportions across months.
+
+- Tax: `tax = round(incl / (1+r) * r, 2)`.
+
+- Channel rules: 财付通 counterparty → WeChat settlement; 银联商务 → POS settlement with fee parsed from the note; 捷停车 → parking; 抖音 → ignored.
+
+- Terms: operations / registration (Director He) / accounting (Hua Xinyu) / receivables / unallocated receipts.
+
+**tools**: `get_fee_rules()` `get_account(fee_type)` `calc_tax(amount, fee_type)`
+
+### hy-import — import tools
+
+`import_bank_xls(path)`: read only 建行2038 with positive credits; classify and write transactions by channel.
+
+`import_wechat_bill(path, mch_id)`, `import_unionpos_bill(path)`: write detail transactions with source=wechat/unionpos and reconcile totals against bank settlement credits.
+
+`import_receivable_xlsx(path)`: upsert merchants and receivables.
+
+`import_register_xlsx(path)`: import Director He's ledger for comparison only.
+
+Conversation trigger: “Import this statement”, after the user drops a file into the conversation.
+
+### hy-claim — claim engine
+
+`run_claim(scope=today|all)`: three matching levels.
+
+- L1 exact: counterparty approximately matches merchant/brand after removing company suffixes, or matches payer_mapping → confidence 1.0.
+
+- L2 notes: `extract()` obtains merchant, fee, and period, then fuzzy-matches merchants → confidence 0.7–0.9.
+
+  Examples: 李栋 “飞科5-6月租金”, 黎玉 “支付衡阳弘阳广场李宁店电费”, 付勇 “潮正和水费”, 刘鑫 “愤怒弹珠房租”, 钟爱虹 “开心哈乐4月租金”.
+
+- L3 amount: matches a merchant-period unpaid balance within one yuan → prefill a suggestion but retain manual review.
+
+- No match → pending/unallocated receipts. Examples: 张先涛 3000 with only a name, 涂小兰 20062.56 without a note; after manual claim, remember the latter as 炊牛大烩.
+
+`list_pending()`: return pending items → artifact `pending_claims_table`, with merchant dropdown and confirmation per row.
+
+`confirm_claim(txn_id, merchant_id, split?)`: write allocation and confirmed payer_mapping.
+
 `learn_payer(payer, merchant)`
-对话触发："认领一下今天的收款" "张先涛那笔是开心哈乐的"
 
-### hy-dingtalk —— 钉钉输入口
-钉钉企业内部机器人，**Stream 模式**（无需公网回调，本机就能演）；接收 text / picture（picture 走 downloadCode → 机器人消息文件下载接口取图）。
-流程：收到消息 → 建/续一个 agent session（按钉钉 userId）→ agent 调：
-- `parse_payment_screenshot(image)`：vision 抽 金额 / 支付时间 / 交易单号 / 收款方（校验为诚远公司）
-- `parse_report_text(text)`：extract 抽 商户名 + [{fee_type, amount}]（"阿妹泡菜电费1000元，水费200"→ 两行）
-- 写 transaction(source=dingtalk)，尝试按交易单号 / 金额+时间窗 ±2min 与 wechat/unionpos 明细合并
-- 商户匹配成功 → 回复"已登记：围辣转转火锅 电费 500 ✔ 交易单号 …642"
-- 匹配失败 → 回复"金额 500 已收到，没认出商户，请回复商户名"，用户回复后走 confirm_claim
-- 只发图没文字 → 回复"请补一句：哪个商户、什么费"
-演示前置：一个钉钉测试组织 + 机器人 AppKey/Secret；两部手机（一部当运营）。
+Conversation triggers: “Claim today's receipts” and “Zhang Xiantao's payment belongs to 开心哈乐”.
 
-### hy-daily-report —— 收入日报表（客户指定的最终产物）
-`build_daily_report(date)`：把当日所有 allocation 汇成日报表，一商户一笔收款一行，费项金额落到对应列，小计 = 各费项之和，顶部合计行带公式。
-`export_daily_report_xlsx(date)`：34 列与 `收入日报表格式.xlsx` 完全一致：
-序号, 收款日期, 铺位号/点位号, 商户名称, 品牌, 收款金额小计, 收款来源, 款项起始期, 款项截止期, [22 个费项列], 备注, 是否已开票据, 票据号码, 开票日期
-收款来源按 transaction.source 映射：银行转账2038 / POS收款 / 企业微信706 / 企业微信380 / 平安银行 / 银行转账2035
-`compare_daily_report(date, client_xlsx)`：与贺部长手工登记表逐行比对 → artifact `report_diff`
-对话触发："出今天的收入日报表" "跟贺部长登记的比一下"
-artifact `daily_report_table`：可在表格里直接改费项金额/商户，改完回写 allocation
+### hy-dingtalk — DingTalk input
 
-### hy-voucher —— 凭证（从日报表生成）
-`build_voucher(date)`：输入 = 当日日报表；按日一张，行序照样本：
+Enterprise internal DingTalk robot in **Stream mode**, requiring no public callback URL for a local demo; receives text/picture, using downloadCode and the robot file-download API for pictures.
+
+Flow: receive a message → create/resume an agent session by DingTalk userId → the agent calls:
+
+- `parse_payment_screenshot(image)`: vision extracts amount, payment time, transaction number, and payee, checked against the Chengyuan company.
+
+- `parse_report_text(text)`: extract merchant plus fee/amount pairs; “阿妹泡菜电费1000元，水费200” produces two lines.
+
+- Write transaction(source=dingtalk) and try merging WeChat/UnionPay details by transaction number or amount plus a ±2-minute window.
+
+- Merchant match → reply “已登记：围辣转转火锅 电费 500 ✔ 交易单号 …642”.
+
+- No match → say that amount 500 is captured and request the merchant name, then use confirm_claim after the reply.
+
+- Image without text → ask for the merchant and fee.
+
+Demo prerequisites: a DingTalk test organization, robot AppKey/Secret, and two phones, one acting as operations.
+
+### hy-daily-report — daily income report, the required output
+
+`build_daily_report(date)`: aggregate that day's allocations, one merchant/payment per row, each fee in its column, subtotal as the sum of fees, and formula-based totals at the top.
+
+`export_daily_report_xlsx(date)`: the 34-column layout must match `收入日报表格式.xlsx`:
+
+Sequence, receipt date, shop/location number, merchant name, brand, receipt subtotal, receipt source, period start, period end, [22 fee columns], note, receipt issued, receipt number, issue date.
+
+Map receipt source from transaction.source: bank transfer 2038 / POS / enterprise WeChat 706 / enterprise WeChat 380 / Ping An Bank / bank transfer 2035.
+
+`compare_daily_report(date, client_xlsx)`: compare Director He's manual ledger row by row → artifact `report_diff`.
+
+Conversation triggers: “Generate today's income report” and “Compare it with Director He's ledger”.
+
+Artifact `daily_report_table`: edit fee amounts/merchant directly and write changes back to allocations.
+
+### hy-voucher — vouchers from the daily report
+
+`build_voucher(date)`: input is the day's report; one voucher per day in sample order:
 ```
 借 1002.02 银行收款合计 / 借 1012.08 POS 收款合计
 每商户×每费项：贷 预收(含税) → 借 预收(税额) → 贷 销项税(税额)，摘要同模板
 无税费项只一行贷；暂收款贷 2203.01.05
 ```
-校验：费项税率与销项税科目一致，不一致标红（样本"依沐裳"租金 9% 税额挂 6% 科目即此类）
-`export_voucher_xlsx(date)`：21 列与样本一致：日期,会计年度,期间,凭证字,凭证号,摘要,科目编码,科目全名,币别,原币金额,借方金额,贷方金额,制单,审核,过账,出纳,附件数,来源系统,业务类型,审核状态,作废状态
-`compare_voucher(date, client_xlsx)`：与客户人工凭证逐行比对 → artifact `voucher_diff`（左右并排高亮）
-对话触发："出 4 月 3 日的凭证" "跟我们自己录的比一下"
+Validate fee tax rate against output-VAT account and highlight mismatches, such as 依沐裳's 9% rent tax posted to a 6% account.
 
-### hy-dashboard —— 看板与查询
-`receivable_summary(period)`、`merchant_balance(name)`、`list_overdue(days)`、`today_receipts()`
-artifact `finance_dashboard`（4 个数 + 欠费表）
-对话触发："愤怒弹珠还欠多少" "今天谁交了电费" "欠费超过 30 天的有哪些"
+`export_voucher_xlsx(date)`: 21 sample columns: date, fiscal year, period, voucher prefix, voucher number, summary, account code, full account name, currency, original amount, debit, credit, preparer, reviewer, posting, cashier, attachment count, source system, business type, review status, void status.
+
+`compare_voucher(date, client_xlsx)`: compare customer vouchers row by row → artifact `voucher_diff`, highlighted side by side.
+
+Conversation triggers: “Generate April 3 vouchers” and “Compare with our manual entries”.
+
+### hy-dashboard — dashboard and queries
+
+`receivable_summary(period)`, `merchant_balance(name)`, `list_overdue(days)`, `today_receipts()`
+
+Artifact `finance_dashboard`: four headline values and an overdue table.
+
+Conversation triggers: “How much does 愤怒弹珠 owe?”, “Who paid electricity today?”, and “Which debts are more than 30 days overdue?”.
 
 ---
 
-## 4. 演示脚本（8 分钟）
+## 4. Eight-minute demo script
 
-| # | 谁 | 做什么 | 客户看到 |
+| # | Who | Action | Customer sees |
 |---|---|---|---|
-| 1 | 运营（手机钉钉） | 拍截图 + 打"围辣转转火锅，电费500元" | 机器人 3 秒回"已登记" |
-| 2 | 运营 | 只发一张图，备注"张先涛 3000" | 机器人问"哪个商户？"→ 回"开心哈乐" → 已登记 |
-| 3 | 财务（浏览器） | 拖入 4 月流水："导进来并认领" | 46 笔，40 自动认领，6 待认领（artifact 表格） |
-| 4 | 财务 | 在表格里把涂小兰选成炊牛大烩，确认 | 提示"已记住，下次自动" |
-| 5 | 财务 | "出 4 月 3 日的收入日报表" | 34 列同格式，一行一笔，费项落列；若登记表已到则并排比对 |
-| 5b | 财务 | "出 4 月 3 日凭证，跟我们录的比一下" | 从日报表生成，并排比对行行一致，税率校验点出一处 |
-| 6 | 财务 | "导出" | xlsx 打开即星空 21 列 |
-| 7 | 财务 | "愤怒弹珠还欠多少" | 直接回答 + 明细 |
-| 8 | — | 收尾：交付阶段接银行直连 / 金蝶 API / 历史清理；插件走平台分发 | 边界与扩展路径 |
+| 1 | Operations, phone DingTalk | Photograph payment and enter “围辣转转火锅，电费500元” | Robot responds “registered” in three seconds |
+| 2 | Operations | Send image with “张先涛 3000” | Robot asks which merchant → reply 开心哈乐 → registered |
+| 3 | Finance, browser | Upload April statement and ask to import and claim | 46 transactions: 40 automatic, six pending in an artifact table |
+| 4 | Finance | Select 炊牛大烩 for 涂小兰 and confirm | Mapping remembered for future automatic claims |
+| 5 | Finance | Request April 3 income report | Matching 34-column layout, one payment per row, fee columns, side-by-side ledger comparison if available |
+| 5b | Finance | Request April 3 vouchers and comparison | Generated from report, matching rows side by side, with one tax validation issue |
+| 6 | Finance | Export | xlsx opens with 21 Galaxy columns |
+| 7 | Finance | Ask how much 愤怒弹珠 owes | Direct answer and detail |
+| 8 | — | Explain later bank connectivity, Kingdee API, historical cleanup, and plugin distribution | Scope and extension path |
 
 ---
 
-## 5. 排期
+## 5. Schedule
 
-| 日期 | 交付 | 验收 |
+| Date | Deliverable | Acceptance |
 |---|---|---|
-| 9/9 晚 | 换壳 grep 清单过完；ModelProvider + anthropic 跑通 vision/extract；hy-finance-core skill.md 写完 | 页面无 dsh 字样；截图能抽出金额 |
-| 9/10 | hy-import（真流水 + fixtures 对账单）；hy-claim L1/L2；pending 表格 artifact | 46 笔导入，≥35 笔自动认领 |
-| 9/11 | hy-dingtalk Stream 接入 + 两个 parse 工具；hy-claim L3 + confirm；税/拆分工具（费项按 22 列枚举） | 手机发图+文字 → 机器人回"已登记" |
-| 9/12 | hy-daily-report 生成/导出/比对；hy-voucher 从日报表生成/比对/导出；hy-dashboard；真数据替换；演示脚本走 3 遍 | 4/3 日报表 34 列格式一致；4/3 凭证与客户凭证逐行一致 |
-| 9/13 | 演示 | — |
+| September 9 evening | Branding checklist; ModelProvider and Anthropic vision/extract; hy-finance-core skill.md | No dsh branding; screenshot amount extraction |
+| September 10 | hy-import with real statements and fixtures; hy-claim L1/L2; pending artifact | 46 imported transactions, at least 35 automatic claims |
+| September 11 | DingTalk Stream and two parse tools; claim L3/confirmation; tax and splitting tools using 22 fee columns | Phone image plus text receives “registered” |
+| September 12 | Report generation/export/comparison; vouchers from reports with comparison/export; dashboard; real data and three rehearsals | April 3 report matches 34-column layout; vouchers match customer rows |
+| September 13 | Demo | — |
 
 ---
 
-## 6. 风险与预案
+## 6. Risks and contingencies
 
-| 风险 | 预案 |
+| Risk | Contingency |
 |---|---|
-| 客户没有钉钉（他们现在用微信） | 演示照做钉钉，说明企微是同一 handler 换适配器；开场先问一句他们用什么 |
-| 钉钉 Stream 模式取图接口不通 | 退化：机器人只收文字，图片由财务在浏览器会话里拖入 |
-| 运营应收表没到 | 从凭证摘要 `-{铺位号}&{商户名}` 反推商户主数据 |
-| 微信/银联对账单没到 | 日结汇总保留为一行挂 1012.08，说明"接对账单后自动拆到商户" |
-| 13%/3% 科目编码不确定 | 占位，演示前问贺部长 |
-| 现场网络不通 | 本机 + 热点；provider 可切国产 |
-| "这不就是大模型加 Excel" | 指钉钉入口 + 待认领队列 + 付款人映射库 + 插件分发：多人、多部门、持续积累，个人工具做不了 |
+| Customer uses WeChat instead of DingTalk | Demonstrate DingTalk and explain the enterprise WeChat adapter alternative; ask which channel they use |
+| DingTalk Stream image-download API fails | Text-only robot; finance uploads images in the browser |
+| Operations receivables unavailable | Derive merchant master data from voucher summaries `-{铺位号}&{商户名}` |
+| WeChat/UnionPay statements unavailable | Keep settlement as one 1012.08 row and explain that statement details allow merchant splitting |
+| 13%/3% account codes unknown | Keep placeholders and ask Director He before the demo |
+| No on-site network | Local host plus hotspot, with a domestic provider option |
+| “Is this just an LLM plus Excel?” | Show DingTalk intake, pending claims, payer mappings, and plugin distribution supporting multiple people, departments, and accumulated knowledge |

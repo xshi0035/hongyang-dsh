@@ -1,68 +1,88 @@
-# 弘阳广场 AI 财务助手 · 交接文档
+---
+description: "Historical Hongyang development handoff with a link to the current implementation state."
 
-写给接手开发的人（或 Codex）。日期 2026-09-11 晚。演示日期 **2026-09-13**。
+kind: "reference"
+---
 
-先按顺序读：本文 → [spec.md](spec.md)（需求）→ [design.md](design.md)（设计）→ `packages/hongyang/finance/README.md` → 跑一遍验收脚本（§7）。**先跑通、看懂，再改代码。**
+# Hongyang Plaza AI finance assistant · historical handoff
+
+English | [中文](HANDOFF.zh.md)
+
+Historical snapshot from 2026-09-11, preserved for background. Startup, branches, acceptance numbers, and open work have changed; use the [2026-09-14 handoff](CLAUDE_HANDOFF_2026-09-14.md) for current work. The deletion, uninstall, and commit instructions below are historical records, not authorization to execute them.
+
+For the developer taking over the project (or Codex). Snapshot: evening of 2026-09-11. Demo date: **2026-09-13**.
+
+Read in order: this page → [spec.md](spec.md) (requirements) → [design.md](design.md) (design) → `packages/hongyang/finance/README.md` → run the acceptance script (§7). **Understand the running system before changing code.**
 
 ---
 
-## 1. 我们在解决什么
+## 1. The problem
 
-客户：衡阳弘阳广场，法人主体"衡阳诚远商业管理有限公司"，一个商业综合体，300 多家商户。财务系统是金蝶云星空。三个人：周晓（对接）、贺部长（登记收款）、华新玉（做账）。
+Customer: Hengyang Hongyang Plaza, a shopping complex with more than 300 merchants, operated by the legal entity “衡阳诚远商业管理有限公司”. Its accounting system is Kingdee Cloud Galaxy. Contacts: Zhou Xiao (coordination), Director He (receipt registration), and Hua Xinyu (accounting).
 
-**现状的痛点**：钱从五个口子进来（建行两个账户、平安银行、银联 POS、两个微信商户号），贺部长每天手工把每一笔钱对到"哪个商户、什么费项、哪个账期"，登记进一张 34 列的 Excel（收入日报表）；华新玉再照着日报表手工录金蝶凭证。POS 刷卡大多没写附言，钱是谁的只有运营部现场的人知道。
+**Customer pain:** receipts arrive through several channels (two CCB accounts, Ping An Bank, UnionPay POS, and two WeChat merchant accounts). Director He manually identifies each payment's merchant, fee, and billing period and enters it in a 34-column daily income spreadsheet. Hua Xinyu then enters Kingdee vouchers from that report. Most POS receipts lack a payment note, so only the on-site operations staff know the payer's merchant.
 
-**我们要演示的**（8 步演示脚本在 spec §4）：
+**Demo goals** (the eight-step script is in spec §4):
 
-1. 运营部在钉钉拍付款截图加一句话 → 机器人回"已登记"。
-2. 财务拖入银行流水 → 系统自动认领大部分，剩下的在卡片里点一下确认，并记住付款人。
-3. "出 4 月 3 日的收入日报表" → 34 列 xlsx，在会话里用 Univer 预览，和贺部长台账逐行比对。
-4. "出 4 月 3 日凭证" → 21 列星空凭证，税率校验，和客户凭证比对。
-5. "愤怒弹珠还欠多少" → 直接回答。
+1. Operations sends a payment screenshot and a short message through DingTalk → the robot replies “registered”.
 
-**铁律**：模型只理解意图、选工具、解释结果。金额、税额、拆分、凭证行全部由确定性代码算（`packages/hongyang/finance/src/provider/`）。模型不碰钱。
+2. Finance uploads bank transactions → most are claimed automatically, the remainder need card confirmation, and payer mappings are remembered.
+
+3. “Generate the April 3 income report” → a 34-column xlsx, previewed in Univer inside the conversation and compared row by row with Director He's ledger.
+
+4. “Generate April 3 vouchers” → 21-column Galaxy vouchers, with tax-rate validation and comparison against customer vouchers.
+
+5. “How much does 愤怒弹珠 still owe?” → a direct answer.
+
+**Rule:** the model understands intent, chooses tools, and explains results. Deterministic code calculates amounts, tax, splits, and voucher lines (`packages/hongyang/finance/src/provider/`). The model performs no financial arithmetic.
 
 ---
 
-## 2. 客户提供的材料及用途
+## 2. Customer materials and their purpose
 
-全部在 `docs/hongyang/samples/`（git 忽略，含客户真实数据，**不要提交、不要外传**）。演示工作区 `/Users/shixin/Desktop/sampel/` 里有一份副本。
+The files are under `docs/hongyang/samples/` (ignored by Git, containing real customer data; **do not commit or distribute**). A copy is in the demo workspace `/Users/shixin/Desktop/sampel/`.
 
-| 文件 | 内容 | 在系统里的角色 | 导入器 |
+| File | Content | System role | Importer |
 |---|---|---|---|
-| `建行流水_2026-04-01_08.xls` | 建行 2038 户 46 笔收入、2035 户 1 笔，4/1–4/8 | **主流水**。对方户名决定渠道：财付通=微信日结、银联商务=POS 日结、捷停车=停车费、抖音=忽略、衡阳诚远=内部划转忽略、其余=对公/个人转账 | `import/bank-ccb.ts` |
-| `微信小程序1693395706_*.csv` | 706 商户号 402 单，电费充值小程序，GBK 编码 | 拆财付通日结到商户。商品名 `商户:趣捞鱼-3033 电表:1` 直接给出商户与铺位 | `import/platform.ts` importWechat |
-| `微信小程序1723333380_*.csv` | 380 商户号 2157 单，全是停车费 | 拆财付通日结；不落商户，记停车费 | 同上 |
-| `pos扫码 2026.4.1-2026.4.30.xlsx` | 银联商务 814 笔，第 1 行是汇总，第 2 行表头 | 拆银联日结。814 笔里 699 笔付款附言为空，只能靠运营上报或人工认领 | `import/platform.ts` importUnionPayPos |
-| `充值记录(2026.4.1-30).xls` | 449 条电表充值，"商户-铺位"、电表号、充值方式 | 电费订单到商户的交叉参考；目前只入库不参与计算 | `import/platform.ts` importRecharge |
-| `4月结算账单列表-平安银行.xlsx` | 停车系统日结 21 条 | 暂不导入（停车费按建行里的捷停车到账记） | 无 |
-| `租费应收明细表.xlsx` | 2025.7–2026.4，租费 sheet 2111 行 + 水电 sheet 1138 行 | **商户主数据**（铺位、签约人、品牌、楼层）+ 每期应收/已收/未收。认领引擎的匹配依据 | `import/receivable.ts` |
-| `2026.4.1-4.30收入日报表.xlsx` | 贺部长手工台账 792 行，35 列（比格式多一列"代收款"） | **标准答案**：日报表比对基准 | `import/reference.ts` importLedger |
-| `凭证_2026-04-01_08.xlsx` | 星空凭证 134 行，4/1–4/8 | **标准答案**：凭证比对基准 | `import/reference.ts` importVoucherXlsx |
-| `收入日报表格式.xlsx` | 客户指定的输出格式，34 列 | 日报表导出的模板依据（列序在 `rules/fee-types.ts`） | 无 |
-| `应收表_截图.png`、`付款截图_银联商务.jpg` | 截图 | 付款截图是钉钉上报识别的输入样例 | 无 |
+| `建行流水_2026-04-01_08.xls` | 46 receipts in CCB account 2038 and one in 2035, April 1–8 | **Primary transactions.** Counterparty selects channel: 财付通 = WeChat settlement, 银联商务 = POS settlement, 捷停车 = parking, 抖音 = ignored, 衡阳诚远 = ignored internal transfer, others = corporate/personal transfer | `import/bank-ccb.ts` |
+| `微信小程序1693395706_*.csv` | 402 orders for merchant account 706, electricity top-up mini-app, GBK encoding | Splits Tenpay settlements by merchant. Product name `商户:趣捞鱼-3033 电表:1` directly identifies merchant and shop | `import/platform.ts` importWechat |
+| `微信小程序1723333380_*.csv` | 2,157 orders for merchant account 380, all parking | Splits Tenpay settlement; records parking without assigning merchants | Same as above |
+| `pos扫码 2026.4.1-2026.4.30.xlsx` | 814 UnionPay transactions; row 1 is a summary, row 2 contains headers | Splits UnionPay settlements. 699 of 814 transactions have no note and need operations reports or manual claims | `import/platform.ts` importUnionPayPos |
+| `充值记录(2026.4.1-30).xls` | 449 meter top-ups with merchant/shop, meter number, and payment method | Cross-reference from electricity orders to merchants; stored but not used in calculations | `import/platform.ts` importRecharge |
+| `4月结算账单列表-平安银行.xlsx` | 21 daily parking-system settlements | Not imported; parking uses 捷停车 credits in the CCB statement | None |
+| `租费应收明细表.xlsx` | July 2025–April 2026; 2,111 rent rows and 1,138 utility rows | **Merchant master data** (shop, signatory, brand, floor) plus receivable/received/unpaid amounts by period; used by claims matching | `import/receivable.ts` |
+| `2026.4.1-4.30收入日报表.xlsx` | Director He's manual ledger: 792 rows, 35 columns, including an extra 代收款 column | **Reference answer:** daily-report comparison baseline | `import/reference.ts` importLedger |
+| `凭证_2026-04-01_08.xlsx` | 134 Galaxy voucher rows, April 1–8 | **Reference answer:** voucher comparison baseline | `import/reference.ts` importVoucherXlsx |
+| `收入日报表格式.xlsx` | Customer output format, 34 columns | Report export layout; column order is in `rules/fee-types.ts` | None |
+| `应收表_截图.png`, `付款截图_银联商务.jpg` | Screenshots | The payment screenshot is an input example for DingTalk extraction | None |
 
-### 三条已经核实的资金规律（代码就是按这个写的）
+### Three verified settlement rules used by the code
 
-1. **财付通日结 = 前一日微信对账单"应结订单金额 − 手续费"之和**，16 笔全部分毫相等。备注 `MMDD_商户号` 指明是哪个商户号。
-2. **银联日结 = 备注日期段内 POS"清算金额"之和**（备注 `0403-0406费50.98元`），同一天可能拆两笔到账（按手续费档），按日期段合并对账。
-3. **贺部长台账粒度是"一商户一笔收款一行"**，费项拆列，可有负数（暂收款冲抵）。同一笔款有时按账期拆成两行。
+1. **Tenpay settlement equals the previous day's WeChat “settled order amount − fee” total.** All 16 matched to the cent. Note `MMDD_商户号` identifies the merchant account.
 
-4/1 到账的 3 笔日结对应 3/31 的明细，客户没给 3 月 31 日对账单，所以对不平，属数据缺口。
+2. **UnionPay settlement equals POS settlement amounts within the note's date range** (for example `0403-0406费50.98元`). One day can have two credits split by fee tier; reconcile the grouped date range.
+
+3. **Director He's ledger uses one merchant/payment per row**, with fees in separate columns and possible negative offsets. A single payment can occupy two rows for different billing periods.
+
+Three April 1 settlement credits require March 31 details. The customer did not provide the March 31 statements, so this is a data gap.
 
 ---
 
-## 3. 代码在哪、怎么跑
+## 3. Code location and execution
 
-### 仓库与环境
+### Repository and environment
 
-- 仓库：`/Users/shixin/Desktop/广场dsh/deepseek-harness`，是 DeepSeek Harness（dsh）的 fork。远端 `origin` = `github.com/xshi0035/hongyang-dsh`（私有），分支 `hongyang-demo`；`upstream` = DeepSeek 官方，`master` 未动。
-- 上游工程规范在 [AGENTS.md](../../AGENTS.md)，改底座代码必须遵守；项目规范在 [CLAUDE.md](../../CLAUDE.md)。
-- pnpm 必须用 corepack 的 11.7.0：`/opt/homebrew/bin/pnpm`（PATH 里的 `~/.npm-global/bin/pnpm` 是 9.x，会出错）。
-- 数据目录独立：`DSH_HOME=~/.dsh-hongyang`（`~/.dsh` 被另一个项目占用，别碰）。代理写在 `~/.dsh-hongyang/.env`（`HTTPS_PROXY=http://127.0.0.1:7897`），不然 OpenAI 超时。
-- 模型：设置页已配 OpenAI 提供方（pi-ai），演示用 GPT-6 Astra。
+- Repository: `/Users/shixin/Desktop/广场dsh/deepseek-harness`, a DeepSeek Harness (dsh) fork. `origin` is private `github.com/xshi0035/hongyang-dsh`, branch `hongyang-demo`; `upstream` is official DeepSeek, and `master` is unchanged.
 
-### 启动
+- Follow upstream engineering rules in [AGENTS.md](../../AGENTS.md) when changing the platform, and project rules in [CLAUDE.md](../../CLAUDE.md).
+
+- Use Corepack pnpm 11.7.0 at `/opt/homebrew/bin/pnpm`; `~/.npm-global/bin/pnpm` on PATH is 9.x and causes errors.
+
+- Isolated data directory: `DSH_HOME=~/.dsh-hongyang`; another project owns `~/.dsh`. The proxy is in `~/.dsh-hongyang/.env` (`HTTPS_PROXY=http://127.0.0.1:7897`); OpenAI requests time out without it.
+
+- Model: the settings page has an OpenAI provider (pi-ai); the demo uses GPT-6 Astra.
+
+### Startup
 
 ```bash
 cd /Users/shixin/Desktop/广场dsh/deepseek-harness
@@ -70,18 +90,21 @@ export PATH=/opt/homebrew/bin:$PATH DSH_HOME=$HOME/.dsh-hongyang
 pnpm dsh web --no-open        # 打印带 token 的 URL，必须用它打开；根路径 401 是正常的
 ```
 
-桌面 Claude 应用里 `广场dsh/.claude/launch.json` 的 `dsh-web` 配置就是这条命令。
+The Claude desktop app's `dsh-web` entry in `广场dsh/.claude/launch.json` runs this command.
 
-### 改代码后怎么生效
+### Applying code changes
 
-- **Host 侧**（`src/` 下除 `client/` 外的一切）：源码启动模式直接从 `src/` 加载（tsx），**重启服务即可**，不用构建。
-- **Client 侧**（`src/client/`）：必须 `pnpm run build`（约 90 秒，含整个仓库），再重启。
-- 类型检查单独跑：`node ./node_modules/typescript/bin/tsc -b packages/hongyang/finance/tsconfig.host.json`（或 `tsconfig.client.json`）。
-- 提交前 lefthook 会跑 oxlint（max-len 140 等）和 third-party notices；lint 不过提交失败。
+- **Host** (everything under `src/` except `client/`): source launch loads `src/` through tsx, so **restart the service** without a build.
 
-### 包结构（`packages/hongyang/finance`，名 `@deepseek-ai/dsh-hy-finance`）
+- **Client** (`src/client/`): run `pnpm run build` (approximately 90 seconds for the repository), then restart.
 
-按 Univer 插件的标准：一个 npm 包，内部按 Cordis 角色分层。挂载点：`packages/bundle/web-app/cordis.patch.yml` 末尾的 `hy-finance` 行；路径别名在根 `tsconfig.base.json`；两个 tsconfig 聚合 `tsconfig.host.json` / `tsconfig.client.json` 各引用一面。
+- Run focused type checking with `node ./node_modules/typescript/bin/tsc -b packages/hongyang/finance/tsconfig.host.json` (or `tsconfig.client.json`).
+
+- Before a commit, lefthook runs oxlint (including max-len 140) and third-party notices; lint failures block the commit.
+
+### Package structure (`packages/hongyang/finance`, named `@deepseek-ai/dsh-hy-finance`)
+
+The Univer-style package separates Cordis roles internally. Mount: the final `hy-finance` row in `packages/bundle/web-app/cordis.patch.yml`; aliases are in root `tsconfig.base.json`; the `tsconfig.host.json` and `tsconfig.client.json` aggregates each reference their compiler face.
 
 ```text
 src/
@@ -110,101 +133,128 @@ skills/hy-finance, hy-daily-report, hy-voucher   业务口径技能
 tests/import.smoke.ts       真实数据验收脚本
 ```
 
-数据库：`~/.dsh-hongyang/hongyang/finance.db`。改了 schema 就把 `HY_FINANCE_SCHEMA_VERSION` 加一并删掉这个文件重导（没有迁移）。
+Database: `~/.dsh-hongyang/hongyang/finance.db`. The historical procedure for a schema change was to increment `HY_FINANCE_SCHEMA_VERSION`, delete this file, and reimport, with no migration.
 
 ---
 
-## 4. 已完成（4 个提交，`hongyang-demo` 分支）
+## 4. Completed work (four commits on `hongyang-demo`)
 
-| 步 | 提交 | 验收结果（真实数据） |
+| Step | Commit | Acceptance result with real data |
 |---|---|---|
-| 1 骨架 | `53ee9229ab` | 设置页出现"弘阳财务"卡，库自动建 |
-| 2 导入+拆分 | `ed3af15a13` | 47 笔入库，342→318 商户（铺位号规范化后），3203 应收；22 笔日结 19 笔分毫对平，3 笔缺 3/31 明细 |
-| 3 认领+卡片 | `d4fe8e9cfc` | 18 笔转账自动登记 12（2 笔无法识别，其余内部划转忽略），停车 4，微信电费 87，POS 附言 6；卡片确认 → Host 落库 → 模型收到上下文 |
-| 4 日报表+比对+卡片 | `9d8f0d09fb` | 4/3：生成 12 行，台账 14 行，逐行一致 11；差异 3 行原因明确；xlsx 由 Univer 在会话里打开 |
+| 1 Skeleton | `53ee9229ab` | The settings page shows 弘阳财务; database creation is automatic |
+| 2 Imports and splitting | `ed3af15a13` | 47 transactions, 342→318 merchants after shop-number normalization, 3,203 receivables; 19 of 22 settlements match exactly, three lack March 31 details |
+| 3 Claims and cards | `d4fe8e9cfc` | 12 of 18 transfers registered automatically, two unresolved and other internal transfers ignored; parking 4, WeChat electricity 87, POS notes 6; card confirmation → Host write → model context |
+| 4 Reports, comparison, cards | `9d8f0d09fb` | April 3: 12 generated rows versus 14 ledger rows, 11 matched; reasons identified for three differences; xlsx opens through Univer in the conversation |
 
-另外换壳（品牌、配色、中文、深色）已完成并推送。
-
----
-
-## 5. 未完成（按演示优先级）
-
-### 第 5 步 凭证（P0，验收对象 4/3 凭证）
-
-- `provider/voucher/build.ts`：输入 = 当日日报表行。行序照样本：借 1002.02 银行收款合计 / 借 1012.08 POS 收款合计；每商户×每费项：贷 预收科目（含税全额）→ 借 预收科目（税额）→ 贷 销项税科目（税额）；无税费项只一行贷；暂收款贷 2203.01.05。摘要用 `rules/summary.ts`。
-- 校验：借贷平衡；费项税率 ↔ 销项税科目一致（9% 只能 2221.01.02.09），不一致标红；样本"依沐裳"就是一处 9% 挂 6% 科目的错。
-- 13% 与 3% 销项税科目未确认（`config.outputTaxSubject13/3` 留空），含电费水费的凭证只出草稿并列出待确认项。12 个费项的预收科目也未确认（`FEE_RULES` 里 `subject: null`），同样处理。
-- `provider/voucher/export.ts`：21 列 xlsx，列名见 spec §3；`compare.ts`：与 `voucher_row` 按 日期+科目+借贷方向+金额 比对。
-- 工具 `finance_voucher { action: build|export|compare, date }`，元数据 `card: 'hy-finance/voucher'`，客户端加 `VoucherToolView`（照 `FinanceToolViews.tsx` 的两个现成例子）。
-- 先看样本凭证怎么写的：`sqlite3 ~/.dsh-hongyang/hongyang/finance.db "select date,voucher_no,line_no,summary,subject,debit,credit from voucher_row where date='2026-04-03' order by voucher_no,line_no"`。
-
-### 第 6 步 查询与登记（P1）
-
-- `finance_query { kind: receivable_summary|merchant_balance|overdue|today, ... }`：几行 SQL；"愤怒弹珠还欠多少"要按品牌模糊找商户（用 `MerchantIndex.mentionedIn`）。
-- `finance_register { text, image? }`：钉钉和网页共用。截图走 `ctx.llm.stream()`（有图片输入能力，无 JSON mode，让模型输出 JSON 再用 zod 校验），抽 金额/时间/单号/收款方；校验收款方 = `config.companyName`；文字抽 商户 + [{费项, 金额}]；写 `transaction(source='dingtalk')`，尝试按交易单号或金额+时间窗 ±2 分钟与 `platform_txn` 合并；商户命中则 `confirmClaim`，否则回"请回复商户名"。参考 `packages/session/session-title-llm/src/index.ts:254` 的一次性调用写法。
-
-### 第 7 步 钉钉（P1，用户坚持要）
-
-- 新包 `packages/hongyang/dingtalk`（`@deepseek-ai/dsh-hy-dingtalk`），依赖 `dingtalk-stream`（npm 有，2.1.6），Stream 模式无需公网。
-- 收文字 / 图片（图片走 downloadCode 取图）→ 按钉钉 userId 建/续 agent 会话 → 调 `finance_register` → 回复"已登记：商户 费项 金额"或追问。
-- 需要用户提供机器人 AppKey/AppSecret 和一部当运营的手机。凭据走 `ctx.credentials` 或设置卡的 secret 字段，不进 git。
-
-### 第 8 步 演示彩排
-
-- 用 `docs/hongyang/spec.md` §4 的 8 步走 3 遍；每步记录 token 用量（目前一次导入约 240K、一次日报表约 390K，缓存命中 90%+，可接受但别再加无关工具调用）。
-- 交付前清理：卸掉 `dshmarket`、`dsh-find-plugin`；Univer 设置里关遥测；清掉 `~/.dsh-hongyang` 里的测试会话。
-
-### 未做的小项
-
-- `ui-chat` 里 "深度求索中..." 这条思考提示还是 DeepSeek 文案（`packages/client/ui-chat/src/client/locale.ts:25`），改成"思考中..."。
-- 气泡里的模型名（GPT-6 Astra）要不要显示成"财务助手"，用户没定。
-- `finance_status` 报告的待确认科目只读 `FEE_RULES`，还没把设置里填的 `outputTaxSubject13/3` 用起来（凭证那步要用）。
+Branding, colors, Chinese copy, and dark theme were also completed and pushed.
 
 ---
 
-## 6. 已知隐患（改之前先知道）
+## 5. Unfinished work by demo priority
 
-**逻辑上的**
+### Step 5: Vouchers (P0; April 3 acceptance)
 
-1. **"未收"的口径**。客户的应收表是事后快照，4 月的款已标"已收"，所以 `allocate.ts` 不用表里的 已收/未收，而是按本系统自己的登记记录算 open（`allocation.receivable_id`）。拆分默认"最新账期优先，逐期往前"。后果：一笔付多个月的款会被拆成多个月租金（奥龙鞋业 55743.60 拆成 3 个月），台账未必这么记。备注写了月份（"5-6月租金"）时按月份拆，更准。
-2. **同品牌多主体**。"发发桌球"在应收表里挂了两个签约主体（湖南发发竞技、湖南亮点），备注只提品牌时自动认领可能选错主体。备注命中品牌给 0.88 置信直接自动登记，阈值 0.85 偏激进；可考虑同名多主体时降到 0.7 进队列。
-3. **微信电费全部记"预付电费"**（`engine.ts` 里 `elec_pre`），台账里有些可能是"后付电费"，没核对。
-4. **微信停车 654 单逐单登记**，日报表按天合并成一行；凭证也要合并，别一单一行。
-5. **手动确认的费项拆分**：卡片只传铺位号，费项由代码推导；工具 `finance_claim confirm` 支持显式 `splits`，卡片没做这个输入。
-6. **无附言 POS 157 笔**没有出路，只能等钉钉上报（第 7 步）或人工在对话里逐笔确认。
-7. **比对键宽松**：四轮匹配的第三轮只看"同来源同金额"，理论上会把两笔金额相同的不同商户配错；4/1、4/3 数据上没出现。
-8. **捷停车到账**我们记在到账日，台账按业务日或另一渠道记，比对会出"生成有台账无"。
+- `provider/voucher/build.ts`: input is the day's report rows. Follow sample order: debit 1002.02 bank total / debit 1012.08 POS total; per merchant/fee, credit advance receipts including tax → debit advance receipts tax → credit output VAT. Untaxed fees use one credit; unclaimed receipts credit 2203.01.05. Summaries use `rules/summary.ts`.
 
-**代码上的**
+- Validate balanced debits/credits and matching fee tax rates/output-VAT accounts (9% only uses 2221.01.02.09); highlight mismatches. The 依沐裳 sample posts 9% rent tax to a 6% account.
 
-9. `webServer/plugin.ts` 的 confirm 路由只靠登录 cookie，`sessionId` 由前端给，没校验该会话属于当前用户（单机演示无所谓，交付要补）。
-10. `daily_report` 表每 build 一次插一行，没清理；`rows_json` 会膨胀。
-11. `importRecharge` 把充值记录塞进 `platform_txn`，`platform='wechat'`、`merchant_account='recharge'`，各处靠 `<> 'recharge'` 过滤，是个临时做法；充值记录目前没参与任何计算。
-12. 没有 vitest 用例，只有 `tests/import.smoke.ts`；仓库规范要求真实组合测试，这部分欠着。
-13. `tools/definitions/*.ts` 里各自定义了一个 `JsonValue` 结构类型来绕 `type: 'json'` 的输出校验，应改成从 `@deepseek-ai/dsh-util-values` 引入并加 tsconfig 引用。
-14. 客户端两张卡共用 `PendingClaimsCard.module.css`，样式 token 只用了 `--dsw-alias-*`，没问题，但文件名会误导。
-15. `settings/plugin.ts` 的 `installSection` 改配置会 `reconfigure`，但 `dbPath` 改了要重启才生效，卡片提示里写了。
-16. 换壳时改了 `apps/web/tests/pwa-manifest.e2e.ts` 的断言以适配新 favicon；上游其它 e2e 没跑过。
+- At this snapshot, 13% and 3% output-VAT accounts were unconfirmed (`config.outputTaxSubject13/3` empty), so electricity/water vouchers were drafts with unresolved items. Twelve advance-payment fee accounts also had `subject: null` in `FEE_RULES` and required the same treatment.
+
+- `provider/voucher/export.ts`: 21-column xlsx; headings are in spec §3. `compare.ts` compares `voucher_row` by date, account, debit/credit direction, and amount.
+
+- Tool: `finance_voucher { action: build|export|compare, date }`, metadata `card: 'hy-finance/voucher'`; add `VoucherToolView` using the two existing examples in `FinanceToolViews.tsx`.
+
+- Inspect sample vouchers first: `sqlite3 ~/.dsh-hongyang/hongyang/finance.db "select date,voucher_no,line_no,summary,subject,debit,credit from voucher_row where date='2026-04-03' order by voucher_no,line_no"`.
+
+### Step 6: Queries and registration (P1)
+
+- `finance_query { kind: receivable_summary|merchant_balance|overdue|today, ... }`: SQL queries; find “愤怒弹珠” through fuzzy brand lookup with `MerchantIndex.mentionedIn`.
+
+- `finance_register { text, image? }`: shared by DingTalk and Web. Use `ctx.llm.stream()` for image input, request JSON and validate with zod; extract amount, time, order number, and payee. Validate payee against `config.companyName`; extract merchant and fee/amount pairs from text. Write `transaction(source='dingtalk')`, attempt merging with `platform_txn` by transaction number or amount and a ±2-minute window; call `confirmClaim` for a matched merchant, otherwise request the merchant name. See the one-shot call in `packages/session/session-title-llm/src/index.ts:254`.
+
+### Step 7: DingTalk (P1, required by the user)
+
+- New `packages/hongyang/dingtalk` package (`@deepseek-ai/dsh-hy-dingtalk`), using npm `dingtalk-stream` 2.1.6; Stream needs no public callback server.
+
+- Receive text/picture (download via downloadCode) → create/resume an agent session by DingTalk userId → call `finance_register` → return merchant/fee/amount confirmation or a follow-up question.
+
+- The user supplies robot AppKey/AppSecret and a phone acting as operations. Credentials belong in `ctx.credentials` or a settings secret field, never Git.
+
+### Step 8: Demo rehearsal
+
+- Run the eight steps in `docs/hongyang/spec.md` §4 three times and record token usage. This snapshot measured about 240K for an import and 390K for a report, with over 90% cache hits; avoid unrelated tool calls.
+
+- Historical cleanup plan: uninstall `dshmarket` and `dsh-find-plugin`, disable Univer telemetry, and clear test conversations from `~/.dsh-hongyang`.
+
+### Smaller unfinished items
+
+- Replace the DeepSeek thinking text “深度求索中...” in `packages/client/ui-chat/src/client/locale.ts:25` with “思考中...”.
+
+- The user had not decided whether bubbles should show “财务助手” instead of GPT-6 Astra.
+
+- `finance_status` listed unresolved accounts from `FEE_RULES` only, without using settings `outputTaxSubject13/3`; voucher implementation needed those values.
 
 ---
 
-## 7. 验收脚本（改完任何后端逻辑都跑一遍）
+## 6. Known concerns to review before editing
+
+**Business logic**
+
+1. **Unpaid balance semantics.** Customer receivables are a retrospective snapshot with April receipts already marked paid. `allocate.ts` therefore derives open balance from local allocations (`allocation.receivable_id`) rather than imported received/unpaid fields. Default allocation runs from the newest period backwards; a multi-month payment can become several rent rows (奥龙鞋业 55743.60 covers three months), unlike the customer ledger. Explicit month notes such as “5-6月租金” narrow the allocation.
+
+2. **Multiple legal entities under one brand.** 发发桌球 has two signatories, 湖南发发竞技 and 湖南亮点. Brand-only notes can select the wrong entity. A brand match scores 0.88 and auto-registers above 0.85; consider 0.7 and manual review for ambiguous brands.
+
+3. **All WeChat electricity is recorded as prepaid** (`elec_pre` in `engine.ts`); some ledger entries may be postpaid and have not been checked.
+
+4. **654 WeChat parking orders are registered individually** and aggregated into one report row per day. Vouchers also need aggregation.
+
+5. **Manual fee splitting:** cards send only a shop number and code infers the fee; `finance_claim confirm` supports explicit `splits`, but the card has no corresponding input.
+
+6. **157 POS transactions without notes** require DingTalk reporting (step 7) or one-by-one manual confirmation.
+
+7. **Loose comparison keys:** the third of four matching rounds uses only source and amount; two merchants with equal amounts could be paired incorrectly. This did not occur in April 1/3 samples.
+
+8. **捷停车 credits** use the arrival date locally, while the customer ledger may use the business date or another channel, producing generated-only differences.
+
+**Code**
+
+9. The confirmation route in `webServer/plugin.ts` relies on a login cookie and accepts a frontend `sessionId` without checking session ownership. The snapshot treated this as a local-demo limitation to fix before delivery.
+
+10. Every build appends a `daily_report` row without cleanup, so `rows_json` grows.
+
+11. `importRecharge` stores top-ups in `platform_txn` with `platform='wechat'` and `merchant_account='recharge'`; consumers exclude them with `<> 'recharge'`. This is temporary, and top-ups do not participate in calculations.
+
+12. The snapshot had only `tests/import.smoke.ts`, no vitest cases. Repository-required composition tests were missing.
+
+13. Each `tools/definitions/*.ts` file defined a structural `JsonValue` for `type: 'json'` outputs; replace it with `@deepseek-ai/dsh-util-values` and add the tsconfig reference.
+
+14. Two client cards share `PendingClaimsCard.module.css`; its `--dsw-alias-*` tokens are appropriate, but the filename is misleading.
+
+15. Configuration changes through `installSection` in `settings/plugin.ts` call `reconfigure`, but `dbPath` requires a restart, as the settings card explains.
+
+16. Branding changed favicon expectations in `apps/web/tests/pwa-manifest.e2e.ts`; other upstream e2e tests had not run.
+
+---
+
+## 7. Acceptance script after backend changes
 
 ```bash
 cd /Users/shixin/Desktop/广场dsh/deepseek-harness
 node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts
 ```
 
-内存库跑完整链路：导 8 份样本 → 拆分 → 认领 → 4/1、4/3 日报表比对。看这几个数没有倒退：
+The in-memory database runs eight imports → splitting → claims → April 1/3 report comparisons. These were the historical baseline numbers:
 
-- `split matched 19 unmatched 3`（3 笔都是 2026-04-01，对应 3/31）
+- `split matched 19 unmatched 3` (the three unmatched credits are April 1 and require March 31 details)
+
 - `claims run: bankAuto 12, parkingAuto 4, wechatElectricity 87, posAuto 6, pending 18`
+
 - `report 2026-04-03: matched 11 missing 3 extra 1 amount 0`
 
-界面验收走 `docs/hongyang/spec.md` §4，用 `/Users/shixin/Desktop/sampel` 工作区。
+UI acceptance follows `docs/hongyang/spec.md` §4 in workspace `/Users/shixin/Desktop/sampel`.
 
 ---
 
-## 8. 给 Codex 的第一条指令
+## 8. Historical first instruction for Codex
 
-> 先读 `docs/hongyang/HANDOFF.md`，再读 `docs/hongyang/spec.md`、`docs/hongyang/design.md` 和 `packages/hongyang/finance/README.md`。然后跑 `node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts`，把输出里的关键数字和 HANDOFF §7 的基线对一遍，告诉我是否一致。接着通读 `packages/hongyang/finance/src/`，对照 HANDOFF §6 的 16 条隐患，逐条说明你是否认同、是否有遗漏，但**先不要改任何代码**。确认完之后再开始第 5 步（凭证），按 HANDOFF §5 的描述做，验收对象是 2026-04-03 的凭证与 `voucher_row` 表里客户凭证的逐行比对。所有金额计算放在 `provider/` 里，模型不碰钱。每完成一步跑一次 smoke 脚本，lint 通过后提交到 `hongyang-demo` 分支。
+> Read `docs/hongyang/HANDOFF.md`, then `docs/hongyang/spec.md`, `docs/hongyang/design.md`, and `packages/hongyang/finance/README.md`. Run `node --import tsx/esm packages/hongyang/finance/tests/import.smoke.ts`, compare its key figures with HANDOFF §7, and report differences. Read `packages/hongyang/finance/src/` and review the 16 concerns in HANDOFF §6 before changing code. Then implement step 5 vouchers as described in HANDOFF §5, comparing April 3 output line by line with customer data in `voucher_row`. Keep financial calculations in `provider/`. Run the smoke script after each step and commit passing work to `hongyang-demo`.

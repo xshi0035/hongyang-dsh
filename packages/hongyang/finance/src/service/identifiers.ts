@@ -25,14 +25,26 @@ export type ReportId = Branded<'ReportId'>
 /** Row id of `voucher`. */
 export type VoucherId = Branded<'VoucherId'>
 
+interface IdentifierByPrefix {
+  batch: BatchId
+  mch: MerchantId
+  rcv: ReceivableId
+  txn: TransactionId
+  ptx: PlatformTxnId
+  alc: AllocationId
+  rpt: ReportId
+  vcr: VoucherId
+  ldg: Branded<'LedgerRowId'>
+}
+
 /**
  * Mint a fresh id with a readable prefix, e.g. `txn_01J...`; the suffix is a
  * time-ordered random string so rows sort by creation.
  * @param prefix - table prefix.
  * @returns the id.
  */
-export function newId<T extends Branded<string>>(prefix: string): T {
+export function newId<P extends keyof IdentifierByPrefix>(prefix: P): IdentifierByPrefix[P] {
   const time = Date.now().toString(36)
   const rand = Math.random().toString(36).slice(2, 10)
-  return `${prefix}_${time}${rand}` as T
+  return `${prefix}_${time}${rand}` as IdentifierByPrefix[P]
 }

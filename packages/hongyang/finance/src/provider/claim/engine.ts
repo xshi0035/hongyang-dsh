@@ -313,7 +313,11 @@ export function learnPayer(db: DatabaseSync, payerName: string, shopNo: string):
   return merchant
 }
 
-/** Chinese label of a fee type, for tool text. */
+/**
+ * Chinese label of a fee type, for tool text.
+ * @param fee - Supported finance fee type.
+ * @returns The configured fee label.
+ */
 export function feeLabel(fee: FeeType): string {
   return FEE_RULES[fee].label
 }

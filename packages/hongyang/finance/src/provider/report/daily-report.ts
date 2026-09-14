@@ -165,7 +165,7 @@ export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
     const s = bySource[r.source] ?? { count: 0, amount: 0 }
     bySource[r.source] = { count: s.count + 1, amount: s.amount + r.subtotal }
   })
-  const report: DailyReport = { id: newId<ReportId>('rpt'), date, rows: built, totals, bySource, grandTotal }
+  const report: DailyReport = { id: newId('rpt'), date, rows: built, totals, bySource, grandTotal }
   db.prepare('INSERT INTO daily_report (id, date, built_at, rows_json) VALUES (?, ?, ?, ?)')
     .run(report.id, date, new Date().toISOString(), JSON.stringify(built))
   return report
@@ -370,7 +370,11 @@ export function compareDailyReport(db: DatabaseSync, report: DailyReport, tolera
   return result
 }
 
-/** Human label of a fee type. */
+/**
+ * Human label of a fee type.
+ * @param fee - Supported finance fee type.
+ * @returns The configured fee label.
+ */
 export function feeLabel(fee: FeeType): string {
   return FEE_RULES[fee].label
 }

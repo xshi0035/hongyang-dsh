@@ -1,9 +1,14 @@
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { formatCents } from '../../rules/tax.ts'
 import { registerPayment } from '../../provider/register/payment.ts'
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
-export function financeRegisterTool(service: HyFinanceService) {
+/**
+ * Bind payment registration to one finance service.
+ * @param service - Finance service owning the operation.
+ * @returns The registry-ready finance_register tool.
+ */
+export function financeRegisterTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_register',
     description: '登记一笔付款。当前支持文字输入，provider 从文字中解析金额、日期、费项、商户和交易单号；商户和费项都明确时自动登记，否则保存为待确认，不猜商户、不生成正式凭证。截图输入暂待确认运行时图片字段格式。',

@@ -1,32 +1,34 @@
-# 弘阳财务插件 · 设计文档
+# Hongyang finance plugin design
 
-状态：待确认 | 日期：2026-09-11 | 对标：`dsh-univer-office` 0.2.14 的包结构与界面标准
+English | [中文](design.zh.md)
 
-## 1. 结论
+Historical design snapshot, 2026-09-11; benchmark: the package structure and UI conventions of `dsh-univer-office` 0.2.14. The feature list and file tree below are design targets, not a completion report. Current status is in the [Claude handoff](CLAUDE_HANDOFF_2026-09-14.md).
 
-两个 npm 包，都放在本仓库 `packages/hongyang/` 下，作为 workspace 包由 `dsh web` 源码启动直接加载：
+## 1. Design choice
 
-| 包 | 名称 | 职责 |
+Two npm packages under `packages/hongyang/` are workspace packages loaded by a source-based `dsh web` launch:
+
+| Package | Name | Responsibility |
 |---|---|---|
-| `packages/hongyang/finance` | `@deepseek-ai/dsh-hy-finance` | 财务领域全部能力：主数据、导入、认领、拆分、日报表、凭证、查询；Host 工具 + 技能 + 设置 + 浏览器卡片 |
-| `packages/hongyang/dingtalk` | `@deepseek-ai/dsh-hy-dingtalk` | 钉钉 Stream 机器人入口：收文字和图片，调 finance 服务登记，回复结果 |
+| `packages/hongyang/finance` | `@deepseek-ai/dsh-hy-finance` | Finance master data, imports, claims, allocation, daily reports, vouchers, and queries; Host tools, skills, settings, and browser cards |
+| `packages/hongyang/dingtalk` | `@deepseek-ai/dsh-hy-dingtalk` | DingTalk Stream robot entry: receive text and pictures, register through the finance service, and reply |
 
-和 Univer 一样，一个包内部按 Cordis 角色分层，根插件在独立 fiber 里挂载各角色。模型只做识别、抽取、对话；金额、税额、拆分、凭证行全部由 provider 里的确定性代码计算（**模型不碰钱**）。
+Like Univer, each package is layered by Cordis role, with the root plugin mounting roles in separate fibers. Models perform recognition, extraction, and conversation. Deterministic providers calculate amounts, taxes, allocations, and voucher lines (**models do not handle monetary calculation**).
 
-## 2. 必须交付的用户功能
+## 2. Required user capabilities
 
-对应演示脚本 8 步。
+These targets correspond to the eight-step demo script.
 
-1. 财务在会话里拖入建行流水 xls，说"导进来并认领"：工具导入、日结拆分、三层认领，回合尾部出现**待认领卡片**，列出未命中的笔数与建议。
-2. 用户在卡片里为某笔选商户并确认，系统写入分配并记住付款人；下次同名付款人自动命中。
-3. 微信、POS 对账单拖入后，日结那一笔被拆成对账单明细；电费订单按"商户:xx-铺位"落到商户，POS 无附言的进待认领。
-4. 运营在钉钉发付款截图加一句话，机器人回复"已登记：商户 费项 金额"；认不出商户就追问。
-5. "出 4 月 3 日的收入日报表"：生成 34 列 xlsx，与贺部长台账逐行比对，出**日报表卡片**（合计、来源分布、差异数），差异明细在 Univer 里并排打开。
-6. "出 4 月 3 日凭证"：从日报表生成 21 列星空凭证，税率与销项税科目校验，出**凭证卡片**，可导出 xlsx。
-7. "愤怒弹珠还欠多少""欠费超过 30 天的有哪些"：查询工具直接回答，附表格。
-8. 设置页有"弘阳财务"配置卡：数据库路径、税率科目表、待确认科目、钉钉凭据、卡片自动展开开关。
+1. Finance staff drop a CCB XLS statement into chat and ask to import and claim it. Tools import, split settlements, and run three-level matching. A **pending-claims card** at the turn tail shows unmatched counts and suggestions.
+2. A user selects and confirms a merchant on the card. The system writes the allocation and remembers the payer for later matching by name.
+3. WeChat and POS statements split settlement receipts into individual entries. Electricity orders identify merchants from “商户:xx-铺位”; POS entries without notes remain pending.
+4. Operations staff send a payment screenshot and a sentence in DingTalk. The robot replies with the registered merchant, fee, and amount, or asks for the merchant when it cannot identify one.
+5. A request for the April 3 income report generates a 34-column XLSX, compares it row by row with the customer ledger, and shows a **daily-report card** with totals, sources, and discrepancy counts. Univer opens the comparison alongside the report.
+6. A request for April 3 vouchers generates 21-column Kingdee Cloud Galaxy vouchers from the report, validates tax rates and output-tax accounts, and shows an exportable **voucher card**.
+7. Queries such as “愤怒弹珠还欠多少” and “欠费超过 30 天的有哪些” receive direct answers and tables.
+8. A Hongyang finance settings card exposes the database path, tax-account mappings, unresolved accounts, DingTalk credentials, and automatic card expansion.
 
-## 3. 包结构（finance）
+## 3. Proposed finance package structure
 
 ```text
 packages/hongyang/finance/
@@ -93,7 +95,7 @@ packages/hongyang/finance/
       settings/FinanceSettingsCard.tsx
 ```
 
-## 4. 数据模型（SQLite，`$DSH_HOME/hongyang/finance.db`）
+## 4. Proposed SQLite data model (`$DSH_HOME/hongyang/finance.db`)
 
 ```
 import_batch    id, kind(bank|wechat|pos|recharge|receivable|ledger|voucher), file, sha256, rows, imported_at
@@ -110,58 +112,50 @@ daily_report    id, date, built_at, rows_json, xlsx_path, compare_json
 voucher         id, date, built_at, lines_json, checks_json, xlsx_path
 ```
 
-来源枚举与日报表"收款来源"列一一对应：银行转账2038 / 银行转账2035 / 平安银行 / POS收款 / 企业微信706 / 企业微信380。
+Source enums correspond to the report’s receipt-source column: bank transfer 2038, bank transfer 2035, Ping An Bank, POS receipts, enterprise WeChat 706, and enterprise WeChat 380.
 
-## 5. 与真实数据对应的关键规则
+## 5. Rules inferred from the sample data
 
-- 建行 2038 贷方 46 笔（4/1–4/8）。对方户名含"财付通"→ 微信日结，备注 `MMDD_商户号` 指明商户号；含"银联商务"→ POS 日结，备注 `MMDD-MMDD费x元`；含"捷停车"→ 停车费；含"抖音"→ 忽略。
-- 财付通到账 = 微信对账单**前一日** `应结订单金额 − 手续费` 之和（已核对 16 笔全部一致）。银联到账 = **前一日** POS 清算金额之和，可能拆成两笔到账。
-- 微信 706 商户号 = 电费充值小程序，商品名 `商户:趣捞鱼-3033 电表:1` 直接给出商户与铺位；380 商户号全部是停车费，不拆商户。
-- POS 814 笔中 699 笔付款附言为空，只能靠运营上报或人工认领。
-- 台账粒度：一商户一笔收款一行，费项拆列，可有负数（暂收款冲销、诚意金转保证金）。
+- The CCB 2038 sample has 46 credit entries for April 1–8. Counterparty names containing “财付通” identify WeChat settlements, with `MMDD_商户号` in the note; “银联商务” identifies POS settlements with `MMDD-MMDD费x元`; “捷停车” identifies parking; “抖音” is ignored.
+- Tenpay receipts equal the **previous day’s** WeChat order settlement amounts minus fees (all 16 sample entries were checked). UnionPay receipts equal the **previous day’s** POS settlement amounts and may arrive in two receipts.
+- WeChat merchant 706 is the electricity top-up mini-app; a product name such as `商户:趣捞鱼-3033 电表:1` identifies the merchant and shop. Merchant 380 contains parking charges and is not split by merchant.
+- Of 814 POS entries, 699 lack payment notes and require operations reports or manual claims.
+- Ledger granularity is one receipt per merchant per row, with separate fee columns. Negative amounts can represent suspense reversals or conversion of earnest money into deposits.
 
-## 6. 工具结构化结果约定
+## 6. Structured tool results
 
-每个工具返回一个可回放的 JSON 值，带稳定 id，客户端 reducer 只读这些字段，不解析自由文本：
+Tools return replayable JSON with stable IDs. Client reducers consume structured fields rather than parsing prose. The current [shared wire types](../../packages/hongyang/finance/src/shared/wire.ts) own the claim and report fields:
 
 ```ts
-interface ClaimRunResult {
-  batchId: BatchId
-  imported: number
-  settlementsSplit: number
-  autoClaimed: number
-  pending: PendingItem[]          // { transactionId, amount, payerName, remark, suggestions: [{ merchantId, shopNo, name, reason, confidence }] }
-}
-interface DailyReportResult {
-  reportId: string; date: string; rows: number; totals: Record<FeeType, number>
-  bySource: Record<Source, number>; xlsxPath: string
-  compare?: { matched: number; missing: number; extra: number; amountDiff: number; diffs: DiffRow[] }
-}
+export type {
+  ClaimMetaWire,
+  ReportMetaWire,
+} from '@deepseek-ai/dsh-hy-finance'
 ```
 
-## 7. 界面标准（照 Univer）
+## 7. Proposed UI conventions following Univer
 
-- 回合尾部卡片：紧凑 header（标题、日期或批次、状态徽章、折叠/全屏），body 为表格；历史回合默认折叠；不加外部 action footer，动作在卡片内。
-- 待认领卡片每行：金额、付款人、备注、建议商户（置信度色标）、商户下拉、费项拆分预览、确认按钮；确认后行变为"已认领"并显示摘要。
-- 所有文案走 locale 字典，zh 为默认。
-- 颜色只用 `--dsw-alias-*` 语义 token，不写死颜色。
+- Turn-tail cards have a compact header with title, date or batch, status, collapse, and fullscreen controls, followed by a table. Historical turns default to collapsed. Actions stay within the card, without an external action footer.
+- Each pending-claim row shows amount, payer, note, suggested merchants with confidence indicators, merchant selection, allocation preview, and confirmation. Confirmation changes the row to claimed and shows its summary.
+- All UI copy comes from locale dictionaries, with Chinese as the default.
+- Colors use semantic `--dsw-alias-*` tokens rather than fixed values.
 
-## 8. 依赖
+## 8. Dependencies
 
-- 读表：`xlsx`（SheetJS，读 xls/xlsx/csv）、`iconv-lite`（微信 CSV 为 GBK）
-- 写表：`exceljs`（样式、公式、合并单元格）
-- 钉钉：`dingtalk-stream`（Stream 模式，无需公网）
-- 数据库：Node 内建 `node:sqlite`
+- Spreadsheet reading: `xlsx` (SheetJS for XLS/XLSX/CSV) and `iconv-lite` (WeChat CSV uses GBK).
+- Spreadsheet writing: `exceljs` for styles, formulas, and merged cells.
+- DingTalk: `dingtalk-stream`, using Stream mode without a public callback endpoint.
+- Database: Node's built-in `node:sqlite`.
 
-## 9. 顺序
+## 9. Planned implementation order
 
-| 步 | 内容 | 验收 |
+| Step | Work | Acceptance target |
 |---|---|---|
-| 1 | 包骨架、Config、SQLite schema、service 定义、根插件挂进 web profile | `dsh web` 启动无报错，设置页出现"弘阳财务"卡 |
-| 2 | 7 个导入器 + 日结拆分 | 46 笔入库，16 笔财付通与 6 笔银联拆成明细且金额对平 |
-| 3 | 认领引擎 + finance_claim + 待认领卡片 | 46 笔中 ≥ 35 笔自动认领；卡片确认涂小兰→炊牛大烩后写入 payer_mapping |
-| 4 | 日报表构建/导出/比对 + 卡片 | 4/3 日报表 14 行与台账逐行一致 |
-| 5 | 凭证构建/导出/比对 + 卡片 | 4/3 凭证与客户凭证借贷、科目一致；税率校验点出"依沐裳" |
-| 6 | 查询工具 + 登记工具（截图抽取） | "愤怒弹珠还欠多少"直接回答；拖截图能登记 |
-| 7 | 钉钉 Stream 机器人 | 手机发图加文字，3 秒内回复"已登记" |
-| 8 | 演示脚本走 3 遍，README | — |
+| 1 | Package skeleton, Config, SQLite schema, service definition, root plugin in Web profile | `dsh web` starts without errors and settings show Hongyang finance |
+| 2 | Seven importers and settlement splitting | Import 46 receipts; split 16 Tenpay and 6 UnionPay settlements with equal totals |
+| 3 | Claim engine, finance_claim, and pending-claims card | Automatically claim at least 35 of 46 receipts; confirming 涂小兰 → 炊牛大烩 writes payer_mapping |
+| 4 | Report build, export, comparison, and card | All 14 April 3 ledger rows match |
+| 5 | Voucher build, export, comparison, and card | April 3 debit, credit, and accounts match the customer vouchers; tax validation identifies 依沐裳 |
+| 6 | Query and registration tools with screenshot extraction | Answer “愤怒弹珠还欠多少” and register a dropped screenshot |
+| 7 | DingTalk Stream robot | Reply with a registration result within three seconds of a mobile text-and-image message |
+| 8 | Rehearse the demo three times and complete the README | — |

@@ -7,7 +7,7 @@
  */
 
 import type { DatabaseSync } from 'node:sqlite'
-import { newId, type BatchId, type TransactionId } from '../../service/identifiers.ts'
+import { newId, type BatchId } from '../../service/identifiers.ts'
 import type { Channel, Source, Transaction } from '../../service/types.ts'
 import { toCents } from '../../rules/tax.ts'
 import { findHeader, isoDateTime, text, type Workbook } from './read-sheet.ts'
@@ -18,7 +18,11 @@ const REQUIRED = ['账户名称', '交易时间', '贷方发生额（收入）',
 /** Sheet name → report source. */
 const SHEET_SOURCES: Readonly<Record<string, Source>> = { '建行2038': 'bank2038', '建行2035': 'bank2035' }
 
-/** Decide the counterparty class from the payer name. */
+/**
+ * Decide the counterparty class from the payer name.
+ * @param payerName - Payer name matched exactly.
+ * @returns Receipt channel used for settlement processing.
+ */
 export function channelOf(payerName: string): Channel {
   if (payerName.includes('衡阳诚远')) return 'internal'
   if (payerName.includes('财付通')) return 'tenpay'
@@ -58,7 +62,7 @@ export function importBankCcb(db: DatabaseSync, wb: Workbook): BankImportResult 
       const payerName = text(row, columns, '对方户名')
       const remark = [text(row, columns, '备注'), text(row, columns, '摘要')].filter(s => s.length > 0).join(' | ')
       pending.push({
-        id: newId<TransactionId>('txn'),
+        id: newId('txn'),
         batchId: undefined,
         source,
         channel: channelOf(payerName),

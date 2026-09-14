@@ -14,6 +14,9 @@ export interface PaymentImageExtraction {
   feeText?: string | undefined
 }
 
+/**
+ * Legal payee name used to validate payment screenshot evidence.
+ */
 export interface ImageRegistrationOptions {
   companyName: string
 }
@@ -27,13 +30,23 @@ const extractionSchema = z.object({
   feeText: z.string().optional(),
 })
 
-/** Parse model text without doing any financial conversion in the model layer. */
+/**
+ * Parse model text without doing any financial conversion in the model layer.
+ * @param raw - Untrusted JSON extraction text.
+ * @returns Parsed evidence fields; malformed data throws.
+ */
 export function parsePaymentImageExtraction(raw: string): PaymentImageExtraction {
   const value = JSON.parse(raw) as unknown
   return extractionSchema.parse(value)
 }
 
-/** Convert a validated extraction into the same deterministic text registration path. */
+/**
+ * Convert a validated extraction into the same deterministic text registration path.
+ * @param db - Open finance database.
+ * @param extraction - Screenshot fields validated before writes.
+ * @param options - Delivery or validation settings for this operation.
+ * @returns Saved receipt and allocation status.
+ */
 export function registerPaymentFromImage(
   db: DatabaseSync,
   extraction: PaymentImageExtraction,

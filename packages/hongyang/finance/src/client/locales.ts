@@ -14,6 +14,9 @@ export type FinanceSettingsKey =
 /** Dictionary namespace owned by this plugin. */
 export const NS = 'settings.hyFinance'
 
+/**
+ * Chinese finance settings copy.
+ */
 export const zh: Record<FinanceSettingsKey, string> = {
   title: '弘阳财务',
   description: '主数据、流水导入、收款认领、收入日报表、金蝶凭证与欠费查询',
@@ -43,6 +46,9 @@ export const zh: Record<FinanceSettingsKey, string> = {
   readOnly: '当前连接不允许修改设置',
 }
 
+/**
+ * English finance settings copy.
+ */
 export const en: Record<FinanceSettingsKey, string> = {
   title: 'Hongyang Finance',
   description: 'Master data, statement import, receipt claiming, daily income report, Kingdee vouchers, arrears queries',
@@ -81,6 +87,9 @@ export type ClaimsCardKey =
 /** Dictionary namespace of the claims card. */
 export const CLAIMS_NS = 'hyFinance.claims'
 
+/**
+ * Chinese pending claims copy.
+ */
 export const claimsZh: Record<ClaimsCardKey, string> = {
   title: '待认领收款',
   remaining: '剩余 {n} 笔',
@@ -107,6 +116,9 @@ export const claimsZh: Record<ClaimsCardKey, string> = {
   colShop: '铺位',
 }
 
+/**
+ * English pending claims copy.
+ */
 export const claimsEn: Record<ClaimsCardKey, string> = {
   title: 'Receipts to claim',
   remaining: '{n} left',
@@ -142,6 +154,9 @@ export type ReportCardKey =
 /** Dictionary namespace of the report card. */
 export const REPORT_NS = 'hyFinance.report'
 
+/**
+ * Chinese daily report copy.
+ */
 export const reportZh: Record<ReportCardKey, string> = {
   title: '{date} 收入日报表',
   rows: '{n} 行',
@@ -171,6 +186,9 @@ export const reportZh: Record<ReportCardKey, string> = {
   colNote: '说明',
 }
 
+/**
+ * English daily report copy.
+ */
 export const reportEn: Record<ReportCardKey, string> = {
   title: 'Daily income report {date}',
   rows: '{n} rows',

@@ -1,7 +1,12 @@
 import { DWClient, TOPIC_CARD, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
 import type { DingtalkCardCallback, DingtalkConfig, DingtalkImageDownloader, DingtalkInteractiveCardOptions, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
-/** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
+/**
+ * Production adapter for DingTalk Stream. Credentials are supplied by the host.
+ * @param config - Validated operation configuration.
+ * @param imageDownloader - Optional attachment converter producing image data URLs.
+ * @returns Transport lifecycle and handler operations.
+ */
 export function createDingtalkStreamClient(config: DingtalkConfig, imageDownloader?: DingtalkImageDownloader): DingtalkStreamClient {
   const client = new DWClient(config)
   const handlers = new Set<(message: DingtalkTextMessage) => Promise<DingtalkReply>>()
@@ -62,7 +67,11 @@ async function dispatchCardCallback(
   for (const handler of handlers) await handler(callback)
 }
 
-/** Read deployment credentials without making missing configuration fatal. */
+/**
+ * Read deployment credentials without making missing configuration fatal.
+ * @param env - Environment map; defaults to the current process.
+ * @returns Credentials, or undefined when either credential is absent.
+ */
 export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): DingtalkConfig | undefined {
   const clientId = env.DINGTALK_CLIENT_ID?.trim()
   const clientSecret = env.DINGTALK_CLIENT_SECRET?.trim()
@@ -70,7 +79,12 @@ export function dingtalkConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Din
   return { clientId, clientSecret, debug: env.DINGTALK_DEBUG === '1' }
 }
 
-/** Send a published interactive card to the current robot conversation. */
+/**
+ * Send a published interactive card to the current robot conversation.
+ * @param config - Validated operation configuration.
+ * @param options - Delivery or validation settings for this operation.
+ * @param fetchImpl - HTTP implementation; defaults to global fetch.
+ */
 export async function sendDingtalkInteractiveCard(
   config: DingtalkConfig,
   options: DingtalkInteractiveCardOptions,
@@ -102,7 +116,12 @@ export async function sendDingtalkInteractiveCard(
   }
 }
 
-/** Download a DingTalk robot image and return it as a data URL for vision input. */
+/**
+ * Download a DingTalk robot image and return it as a data URL for vision input.
+ * @param config - Validated operation configuration.
+ * @param fetchImpl - HTTP implementation; defaults to global fetch.
+ * @returns An authenticated downloader producing image data URLs.
+ */
 export function createDingtalkImageDownloader(
   config: DingtalkConfig,
   fetchImpl: typeof fetch = fetch,

@@ -103,6 +103,9 @@ export interface ReportMetaWire {
   } | undefined
 }
 
+/**
+ * Serializable voucher proposal metadata consumed by the client review card.
+ */
 export interface VoucherMetaWire {
   readonly card: 'hy-finance/voucher'
   readonly voucherId: string

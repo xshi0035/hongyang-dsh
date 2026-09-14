@@ -11,7 +11,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { ALLOCATION_PRIORITY, FEE_RULES, type FeeType } from '../../rules/fee-types.ts'
 import { splitTax } from '../../rules/tax.ts'
 import { FinanceError } from '../../service/errors.ts'
-import { newId, type AllocationId, type MerchantId, type PlatformTxnId, type TransactionId } from '../../service/identifiers.ts'
+import { newId, type MerchantId, type PlatformTxnId, type TransactionId } from '../../service/identifiers.ts'
 import type { Allocation, AllocationOrigin } from '../../service/types.ts'
 
 /** One explicit split of a receipt. */
@@ -136,7 +136,7 @@ export function allocate(db: DatabaseSync, request: AllocationRequest): Allocati
   for (const s of splits) {
     const tax = splitTax(s.feeType, s.amount)
     const row: Allocation = {
-      id: newId<AllocationId>('alc'),
+      id: newId('alc'),
       transactionId: request.transactionId,
       platformTxnId: request.platformTxnId,
       merchantId: request.merchantId,
@@ -176,7 +176,11 @@ function attachLines(db: DatabaseSync, merchantId: MerchantId, splits: readonly 
   })
 }
 
-/** Human summary of an allocation set, e.g. `租金 29650.92 + 经营服务费 13446.00`. */
+/**
+ * Human summary of an allocation set, e.g. `租金 29650.92 + 经营服务费 13446.00`.
+ * @param rows - Input records to inspect or summarize.
+ * @returns Fee labels and formatted amounts.
+ */
 export function describeAllocations(rows: readonly Allocation[]): string {
   return rows.map(r => `${FEE_RULES[r.feeType].label} ${(r.amountInclTax / 100).toFixed(2)}`).join(' + ')
 }

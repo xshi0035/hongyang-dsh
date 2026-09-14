@@ -99,6 +99,14 @@ const GROUP_ORDER = [
 
 const SERVICE_ROLES: ServiceRole[] = [
   {
+    key: 'hyFinance',
+    pkg: 'hy-finance',
+    title: 'Hongyang finance records',
+    mode: 'core',
+    consumers: ['hy-dingtalk'],
+    note: 'Owns the finance database; bundled tools, routes, and the DingTalk bridge share its import, allocation, and reporting operations.',
+  },
+  {
     key: 'attachments',
     pkg: 'attachment',
     title: 'Durable binary attachment storage',

@@ -1,6 +1,6 @@
 ---
 description: "DingTalk text and payment-image adapters for the Hongyang finance provider."
-kind: "package-library"
+kind: "package-bundle"
 ---
 
 # @deepseek-ai/dsh-hy-dingtalk
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package mounts a DingTalk Stream bridge when loaded by the host with credentials. Text payments use provider previews and an explicit merchant confirmation before registration. Image registration in this bridge remains deferred.
+Users can report text payments through DingTalk, supply a merchant in a later message, and confirm registration against database candidates. The host must load the bridge with credentials. Card delivery and image registration still require integration work; the manifest's empty bundle patch alone activates no listener.
 
 ## Table of Contents
 
@@ -25,7 +25,11 @@ This package mounts a DingTalk Stream bridge when loaded by the host with creden
 <a id="use-this-package"></a>
 ## Use this package
 
-Text collection now uses read-only provider preview: send “电费200”, then a merchant name, then “确认 B1-1003”. The bridge keeps one draft per conversation/user for 30 minutes, shows database candidates, and commits only on an exact valid confirmation. Cancellation and expiry discard the draft without writing; failed confirmation keeps it for retry. Repeating confirmation after success does not write again. This is bounded text matching, not general LLM language understanding. Drafts are in memory and are lost on restart. Native interactive cards and durable delivery deduplication remain unfinished. Image extraction does not yet enter this draft flow and the bridge does not register images automatically.
+Text collection uses read-only provider preview: send “电费200”, then a merchant name, then “确认 ” followed by the actual shop number shown in the candidates. The bridge keeps one draft per conversation/user for 30 minutes, shows database candidates, and commits only on an exact valid confirmation. Cancellation and expiry discard the draft without writing; failed confirmation keeps it for retry. Repeating confirmation after success does not write again. This is bounded text matching, not general LLM language understanding. Drafts are in memory and are lost on restart. Native interactive cards and durable delivery deduplication remain unfinished. Image extraction does not yet enter this draft flow and the bridge does not register images automatically.
+
+### Profile activation
+
+The manifest declares a bundle, but [cordis.patch.yml](cordis.patch.yml) contains an empty patch list. Installing that layer alone does not mount the exported bridge plugin. The Hongyang host composition must explicitly load the package; the [current handoff](../../../docs/hongyang/CLAUDE_HANDOFF_2026-09-14.md) owns the verified local startup. The [entry point](src/index.ts) waits for the finance service and reads credentials from the host process.
 
 ### Prepare the robot in DingTalk
 
@@ -87,6 +91,6 @@ Image attachments and hints vary with the receipt. No cache reuse is guaranteed 
 <details>
 <summary>Working context for maintainers</summary>
 
-No invariant companion is published: this library owns no independently observable registry. Provider/database tests verify writes; host composition and live DingTalk tests are still required.
+No invariant companion is published: the bridge owns no independently observable registry. Provider/database tests verify writes; host composition and live DingTalk tests are still required.
 
 </details>

@@ -249,6 +249,9 @@
       // util/ folders are role-named without the util- prefix their npm names carry,
       // so these aliases stay hand-written like dsh-util-crypto above.
       "@deepseek-ai/dsh-util-time": ["./packages/util/time/src"],
+      "@deepseek-ai/dsh-hy-dingtalk": ["./packages/hongyang/dingtalk/src"],
+      "@deepseek-ai/dsh-hy-finance": ["./packages/hongyang/finance/src"],
+      "@deepseek-ai/dsh-hy-finance/client": ["./packages/hongyang/finance/src/client"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
@@ -429,8 +432,6 @@
       "@deepseek-ai/dsh-tool-subagent/invariant": ["./packages/subagent/tool-subagent/src/invariant.ts"],
       "@deepseek-ai/dsh-tool-subagent-control": ["./packages/subagent/tool-subagent-control/src"],
       "@deepseek-ai/dsh-tool-terminal": ["./packages/terminal/tool-terminal/src"],
-      "@deepseek-ai/dsh-hy-finance": ["./packages/hongyang/finance/src"],
-      "@deepseek-ai/dsh-hy-finance/client": ["./packages/hongyang/finance/src/client"],
       "@deepseek-ai/dsh-tool-todo": ["./packages/todo/tool-todo/src"],
       "@deepseek-ai/dsh-tool-todo/invariant": ["./packages/todo/tool-todo/src/invariant.ts"],
       "@deepseek-ai/dsh-tool-web": ["./packages/web/tool-web/src"],

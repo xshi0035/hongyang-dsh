@@ -42,7 +42,7 @@ export function apply(ctx: Context): void {
     requestBody: 'buffered',
     fetch: async () => {
       const merchants: MerchantWire[] = ctx.hyFinance.merchants().map(m => ({ shopNo: m.shopNo, name: m.name, brand: m.brand }))
-      return json({ merchants })
+      return Promise.resolve(json({ merchants }))
     },
   }), 'hy-finance: merchants route')
 

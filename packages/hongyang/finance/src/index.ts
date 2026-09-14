@@ -22,6 +22,13 @@ import * as skillsPlugin from './skills/plugin.ts'
 import * as toolsPlugin from './tools/plugin.ts'
 import * as webPlugin from './webServer/plugin.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Hongyang finance domain: master data, receipts, claims, reports, vouchers. */
+    hyFinance: HyFinanceService
+  }
+}
+
 export { Config, HY_FINANCE_NS, resolveConfig } from './config.ts'
 export type { ResolvedConfig } from './config.ts'
 export { HyFinanceService } from './service/finance-service.ts'

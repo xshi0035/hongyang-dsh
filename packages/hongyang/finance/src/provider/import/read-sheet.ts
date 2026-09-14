@@ -72,10 +72,10 @@ function decodeText(buffer: Buffer): string {
 }
 
 /** Strip the WeChat export's leading backtick and surrounding whitespace. */
-function cleanCell(value: unknown): string | number | boolean | null {
+function cleanCell(value: Row[number] | undefined): string | number | boolean | null {
   if (value === null || value === undefined) return null
   if (typeof value === 'number' || typeof value === 'boolean') return value
-  const text = String(value).replace(/^`/, '').trim()
+  const text = value.replace(/^`/, '').trim()
   return text.length === 0 ? null : text
 }
 
@@ -99,19 +99,35 @@ export function findHeader(rows: readonly Row[], required: readonly string[]): {
   throw new FinanceError('SHEET_NOT_FOUND', `header with columns ${required.join(', ')} not found`)
 }
 
-/** Collapse whitespace and newlines inside a header label. */
+/**
+ * Collapse whitespace and newlines inside a header label.
+ * @param label - Column heading to normalize and look up.
+ * @returns Normalized heading for lookup.
+ */
 export function normalizeLabel(label: string): string {
   return label.replace(/\s+/g, '')
 }
 
-/** Read a cell by header label, with the label normalized the same way. */
+/**
+ * Read a cell by header label, with the label normalized the same way.
+ * @param row - Decoded worksheet row.
+ * @param columns - Normalized heading-to-column-index map.
+ * @param label - Column heading to normalize and look up.
+ * @returns The cell value, or null when absent.
+ */
 export function cell(row: Row, columns: Map<string, number>, label: string): string | number | boolean | null {
   const col = columns.get(normalizeLabel(label))
   if (col === undefined) return null
   return row[col] ?? null
 }
 
-/** Cell as trimmed text; blanks and nulls become the empty string. */
+/**
+ * Cell as trimmed text; blanks and nulls become the empty string.
+ * @param row - Decoded worksheet row.
+ * @param columns - Normalized heading-to-column-index map.
+ * @param label - Column heading to normalize and look up.
+ * @returns Trimmed cell text, with an empty string for blanks.
+ */
 export function text(row: Row, columns: Map<string, number>, label: string): string {
   const value = cell(row, columns, label)
   if (value === null) return ''

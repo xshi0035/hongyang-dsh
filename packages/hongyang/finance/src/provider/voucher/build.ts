@@ -5,8 +5,21 @@ import { taxOf } from '../../rules/tax.ts'
 import { newId, type VoucherId } from '../../service/identifiers.ts'
 import { buildDailyReport } from '../report/daily-report.ts'
 
+/**
+ * Proposed voucher line with integer-cent debit and credit amounts.
+ */
 export interface VoucherLine { date:string; voucherNo:number; lineNo:number; summary:string; subject:string; subjectName:string; debit:number; credit:number; warning?:string }
+/**
+ * Voucher proposal with balance and unresolved-account checks.
+ */
 export interface VoucherBuild { id:VoucherId; date:string; lines:VoucherLine[]; checks:{ balanced:boolean; warnings:string[] } }
+/**
+ * Build a voucher proposal without saving a formal voucher.
+ * @param db - Open finance database.
+ * @param date - Receipt date in YYYY-MM-DD form.
+ * @param config - Validated operation configuration.
+ * @returns Proposed voucher lines and validation findings.
+ */
 export function buildVoucher(db: DatabaseSync, date:string, config:{ outputTaxSubject13:string; outputTaxSubject3:string }): VoucherBuild {
   const report = buildDailyReport(db,date); const lines:VoucherLine[]=[]; let n=1
   const add=(subject:string,name:string,debit:number,credit:number,summary:string,warning?:string)=>{ const l:VoucherLine={ date,voucherNo:1,lineNo:n++,summary,subject,subjectName:name,debit,credit }; if(warning) l.warning=warning; lines.push(l) }
@@ -29,5 +42,5 @@ export function buildVoucher(db: DatabaseSync, date:string, config:{ outputTaxSu
     if(rule.taxRate>0){ const tax=taxOf(v,rule.taxRate); const subj=rule.taxRate===0.13?config.outputTaxSubject13:rule.taxRate===0.03?config.outputTaxSubject3:(OUTPUT_TAX_SUBJECTS[rule.taxRate] ?? ''); const warn=subj===''?'待确认销项税科目':undefined; add(rule.subject,rule.subjectName??'',tax,0,summary); add(subj,'应交税费_应交增值税_销项税额',0,tax,summary,warn) }
   }
   const debit=lines.reduce((s,l)=>s+l.debit,0), credit=lines.reduce((s,l)=>s+l.credit,0)
-  const warnings=lines.flatMap(l=>l.warning?[l.warning]:[]); return { id:newId<VoucherId>('vcr'),date,lines,checks:{ balanced:debit===credit,warnings } }
+  const warnings=lines.flatMap(l=>l.warning?[l.warning]:[]); return { id:newId('vcr'),date,lines,checks:{ balanced:debit===credit,warnings } }
 }

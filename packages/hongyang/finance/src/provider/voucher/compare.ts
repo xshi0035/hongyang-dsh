@@ -2,10 +2,22 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { VoucherBuild, VoucherLine } from './build.ts'
 
 interface VoucherReferenceRow { voucher_no: number; line_no: number; summary: string; subject: string; debit: number; credit: number }
+/** Comparison counts and unmatched customer or generated voucher lines. */
+export interface VoucherComparison {
+  date: string
+  matched: number
+  diffs: { line: number; expected: VoucherReferenceRow | null; actual: VoucherLine | null }[]
+}
 function rowKey(row: { subject: string; debit: number; credit: number }): string {
   return `${row.subject}|${row.debit > 0 ? 'debit' : 'credit'}|${row.debit || row.credit}`
 }
-export function compareVoucher(db: DatabaseSync, voucher: VoucherBuild) {
+/**
+ * Match generated voucher lines against imported reference accounts and amounts.
+ * @param db - Open finance database.
+ * @param voucher - Proposed voucher for the date under review.
+ * @returns Matched count and unmatched reference or generated lines.
+ */
+export function compareVoucher(db: DatabaseSync, voucher: VoucherBuild): VoucherComparison {
   const rows = db.prepare('SELECT voucher_no,line_no,summary,subject,debit,credit FROM voucher_row WHERE date=? ORDER BY voucher_no,line_no').all(voucher.date) as unknown as VoucherReferenceRow[]
   const expected = new Map<string, VoucherReferenceRow[]>()
   for (const row of rows) { const bucket = expected.get(rowKey(row)) ?? []; bucket.push(row); expected.set(rowKey(row), bucket) }

@@ -6,7 +6,7 @@
  * @module @deepseek-ai/dsh-hy-finance/tools/definitions/import
  */
 
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { formatCents } from '../../rules/tax.ts'
 import type { ImportOutcome } from '../../provider/import/index.ts'
@@ -89,7 +89,7 @@ function describe(outcome: ImportOutcome, file: string): ImportToolResult {
  * @param service - the finance service.
  * @returns the tool.
  */
-export function financeImportTool(service: HyFinanceService) {
+export function financeImportTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_import',
     description: '把客户的一份文件导入弘阳财务数据库。自动识别：建行流水 xls（建行2038/2035 两个 sheet）、微信商户平台对账单 csv、银联商务 POS 对账单 xlsx、电表充值记录 xls、租费应收明细表 xlsx（商户主数据与应收）、收入日报表台账 xlsx（比对基准）、金蝶凭证 xlsx（比对基准）。导入建行流水或平台对账单后会自动做日结拆分：财付通到账对前一日微信明细，银联到账对备注日期范围内的 POS 明细，金额分毫相等才算对平。同一文件不会重复导入。',

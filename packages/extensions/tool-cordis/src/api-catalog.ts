@@ -1109,6 +1109,156 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'hyFinance',
+    summary: 'The finance domain service.',
+    description: 'The finance domain service. Constructed by the root plugin; the database opens during `[Service.init]` and closes with the fiber.',
+    methods: [
+      {
+        signature: 'config: ResolvedConfig',
+        description: 'Resolved plugin configuration; replaced when the settings section changes.',
+        parameters: [],
+      },
+      {
+        signature: 'db(): DatabaseSync',
+        description: 'The open database. Provider modules borrow it for one operation at a time.',
+        parameters: [],
+        returns: 'the handle.',
+        throws: ['when called before init or after disposal.'],
+      },
+      {
+        signature: 'reconfigure(config: HyFinanceConfig): void',
+        description: 'Replace the live configuration (settings section change).',
+        parameters: [{ name: 'config', description: 'the new validated configuration.' }],
+      },
+      {
+        signature: 'importFile(file: string, kind?: ImportKind): Promise<ImportOutcome>',
+        description: 'Import one client file; bank and platform statements also re-run settlement splitting.',
+        parameters: [{ name: 'file', description: 'absolute path.' }, { name: 'kind', description: 'explicit kind, or detected from the headers.' }],
+        returns: 'the import outcome.',
+      },
+      {
+        signature: 'splitSettlements(): SplitResult',
+        description: 'Re-run settlement splitting over every pending Tenpay / UnionPay credit.',
+        parameters: [],
+        returns: 'matched and unmatched credits.',
+      },
+      {
+        signature: 'runClaims(): ClaimRunResult',
+        description: 'Run the claim engine over everything unbooked.',
+        parameters: [],
+        returns: 'Automatic bookings and the remaining review queue.',
+      },
+      {
+        signature: 'listPending(): { pending: PendingItem[]; unlabelledPos: UnlabelledPos[] }',
+        description: 'The pending queue with suggestions.',
+        parameters: [],
+        returns: 'Pending receipts and POS rows needing merchant labels.',
+      },
+      {
+        signature: 'confirmClaim(itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin): ConfirmResult',
+        description: 'Book one queued item to a shop.',
+        parameters: [{ name: 'itemId', description: '`txn:<id>` or `ptx:<id>`.' }, { name: 'shopNo', description: 'shop number; empty books suspense.' }, { name: 'splits', description: 'explicit splits in cents.' }, { name: 'origin', description: 'who confirmed.' }],
+        returns: 'Booked allocations and payer-mapping status.',
+      },
+      {
+        signature: 'learnPayer(payerName: string, shopNo: string): Merchant',
+        description: 'Remember a payer → shop mapping.',
+        parameters: [{ name: 'payerName', description: 'Payer name matched exactly.' }, { name: 'shopNo', description: 'Selected shop number.' }],
+        returns: 'The merchant associated with the stored mapping.',
+      },
+      {
+        signature: 'buildDailyReport(date: string): DailyReport',
+        description: 'Build one day\'s income report from allocations.',
+        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }],
+        returns: 'Daily report rows and integer-cent totals.',
+      },
+      {
+        signature: 'exportDailyReport(report: DailyReport, dir: string): Promise<string>',
+        description: 'Write a built report as xlsx into `dir`.',
+        parameters: [{ name: 'report', description: 'Generated daily report for review or export.' }, { name: 'dir', description: 'Destination directory, created when absent.' }],
+        returns: 'Absolute path to the written XLSX workbook.',
+      },
+      {
+        signature: 'compareDailyReport(report: DailyReport): CompareResult',
+        description: 'Compare a built report with the ledger rows of its day.',
+        parameters: [{ name: 'report', description: 'Generated daily report for review or export.' }],
+        returns: 'Matched rows and discrepancies within the configured tolerance.',
+      },
+      {
+        signature: 'buildVoucher(date: string): VoucherBuild',
+        description: 'Build a voucher proposal without saving a formal voucher.',
+        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }],
+        returns: 'Proposed voucher lines and validation findings.',
+      },
+      {
+        signature: 'receivableSummary(): ReceivableSummary',
+        description: 'Aggregate positive open receivables after relief and linked allocations.',
+        parameters: [],
+        returns: 'Owing merchant count and positive balances grouped by fee.',
+      },
+      {
+        signature: 'merchantBalance(query: string): MerchantBalance[]',
+        description: 'Find positive merchant balances by shop, name, or brand substring.',
+        parameters: [{ name: 'query', description: 'Substring matched against shop number, merchant name, or brand.' }],
+        returns: 'Matching positive merchant balances, largest first.',
+      },
+      {
+        signature: 'overdue(days: number, today: string): OverdueRow[]',
+        description: 'Find merchants with positive receivables due before the cutoff.',
+        parameters: [{ name: 'days', description: 'UTC days subtracted from the reference date.' }, { name: 'today', description: 'Reference date in YYYY-MM-DD form.' }],
+        returns: 'Owing merchants and oldest qualifying due dates.',
+      },
+      {
+        signature: 'todayReceipts(date: string): ReceiptToday[]',
+        description: 'Group booked allocations by source for one receipt date.',
+        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }],
+        returns: 'Source totals in integer cents and distinct receipt counts.',
+      },
+      {
+        signature: 'previewPayment(text: string): PaymentPreview',
+        description: 'Inspect a payment draft without writing financial rows.',
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }],
+        returns: 'Merchant candidates, summary, and amount/fee readiness.',
+      },
+      {
+        signature: 'confirmPayment(text: string, shopNo: string): RegisterResult',
+        description: 'Validate an offered merchant and register the draft payment.',
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }, { name: 'shopNo', description: 'Selected shop number.' }],
+        returns: 'Saved receipt and allocation status; invalid selection throws.',
+      },
+      {
+        signature: 'parsePayment(text: string): ParsedPayment',
+        description: 'Extract payment fields without writing financial rows.',
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }],
+        returns: 'Parsed amount, date, merchant, fee, and reference.',
+      },
+      {
+        signature: 'registerPayment(text: string): RegisterResult',
+        description: 'Parse and save a payment, allocating when merchant and fee resolve.',
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }],
+        returns: 'Saved receipt and allocation status.',
+      },
+      {
+        signature: 'registerPaymentFromImage(extraction: PaymentImageExtraction): RegisterResult',
+        description: 'Validate screenshot fields and register through the shared provider.',
+        parameters: [{ name: 'extraction', description: 'untrusted vision extraction, validated again before writes.' }],
+        returns: 'committed receipt or pending allocation; invalid evidence throws without writing.',
+      },
+      {
+        signature: 'merchants(): Merchant[]',
+        description: 'Every merchant, for pickers.',
+        parameters: [],
+        returns: 'Current merchant master records.',
+      },
+      {
+        signature: 'counts(): FinanceCounts',
+        description: 'Row counts across the main tables.',
+        parameters: [],
+        returns: 'the counts.',
+      },
+    ],
+  },
+  {
     key: 'inspector',
     summary: 'Shared Host/Client service façade over the realm\'s source publisher.',
     description: 'Shared Host/Client service façade over the realm\'s source publisher.',
@@ -3639,6 +3789,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
   },
   {
+    name: 'Allocation',
+    declaration: 'export interface Allocation {\n    readonly id: AllocationId;\n    readonly transactionId: TransactionId;\n    readonly platformTxnId: PlatformTxnId | undefined;\n    readonly merchantId: MerchantId | undefined;\n    readonly receivableId: ReceivableId | undefined;\n    readonly feeType: FeeType;\n    readonly periodStart: string | undefined;\n    readonly periodEnd: string | undefined;\n    readonly amountInclTax: number;\n    readonly taxRate: TaxRate;\n    readonly taxAmount: number;\n    readonly origin: AllocationOrigin;\n    readonly createdAt: string;\n}',
+  },
+  {
+    name: 'AllocationId',
+    declaration: 'export type AllocationId = Branded<\'AllocationId\'>;',
+  },
+  {
+    name: 'AllocationOrigin',
+    declaration: 'export type AllocationOrigin = \'engine\' | \'user\' | \'dingtalk\' | \'import\';',
+  },
+  {
     name: 'ApiKeyRecord',
     declaration: 'export interface ApiKeyRecord {\n    readonly kind: \'api-key\';\n    readonly key?: string;\n    readonly env?: Readonly<Record<string, string>>;\n}',
   },
@@ -3787,8 +3949,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AuthorizationStatus = \'authorized\' | \'cancelled\';',
   },
   {
+    name: 'AutoBooked',
+    declaration: 'export interface AutoBooked {\n    readonly itemId: string;\n    readonly payerName: string;\n    readonly amount: number;\n    readonly shopNo: string;\n    readonly name: string;\n    readonly booked: string;\n    readonly confidence: number;\n}',
+  },
+  {
     name: 'BackendRegistry',
     declaration: 'export class BackendRegistry {\n    register(name: string, backend: StorageBackend): () => void;\n    get(name: string): StorageBackend;\n    names(): string[];\n}',
+  },
+  {
+    name: 'BankImportResult',
+    declaration: 'export interface BankImportResult {\n    readonly batchId: BatchId;\n    readonly sheets: string[];\n    readonly credits: number;\n    readonly inserted: number;\n    readonly duplicates: number;\n    readonly byChannel: Record<Channel, number>;\n}',
   },
   {
     name: 'BashEnvContributor',
@@ -3803,12 +3973,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
   },
   {
+    name: 'BatchId',
+    declaration: 'export type BatchId = Branded<\'BatchId\'>;',
+  },
+  {
     name: 'Branded',
     declaration: 'export type Branded<B extends string> = string & {\n    readonly [BRAND]: B;\n};',
   },
   {
     name: 'BrandedNumber',
     declaration: 'export type BrandedNumber<B extends string> = number & {\n    readonly [BRAND]: B;\n};',
+  },
+  {
+    name: 'Channel',
+    declaration: 'export type Channel = \'tenpay\' | \'unionpay\' | \'parking\' | \'douyin\' | \'internal\' | \'transfer\';',
+  },
+  {
+    name: 'ClaimRunResult',
+    declaration: 'export interface ClaimRunResult {\n    readonly bankReviewed: number;\n    readonly bankAuto: number;\n    readonly parkingAuto: number;\n    readonly wechatElectricity: number;\n    readonly wechatParking: number;\n    readonly posAuto: number;\n    readonly pending: PendingItem[];\n    readonly unlabelledPos: UnlabelledPos[];\n    readonly autoBooked: AutoBooked[];\n}',
   },
   {
     name: 'ClientArtifactBaseline',
@@ -3899,6 +4081,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CompactionTrigger = \'pressure\' | \'context-overflow\';',
   },
   {
+    name: 'CompareResult',
+    declaration: 'export interface CompareResult {\n    readonly date: string;\n    readonly reportRows: number;\n    readonly ledgerRows: number;\n    readonly matched: number;\n    readonly diffs: DiffRow[];\n    readonly reportTotal: number;\n    readonly ledgerTotal: number;\n}',
+  },
+  {
     name: 'CompositionRowEnablement',
     declaration: 'export type CompositionRowEnablement = boolean | \'conditional\';',
   },
@@ -3909,6 +4095,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ConfinedSandboxMode',
     declaration: 'export type ConfinedSandboxMode = Exclude<SandboxMode, \'danger-full-access\'>;',
+  },
+  {
+    name: 'ConfirmResult',
+    declaration: 'export interface ConfirmResult {\n    readonly itemId: string;\n    readonly merchant: Merchant | undefined;\n    readonly allocations: Allocation[];\n    readonly booked: string;\n    readonly learned: boolean;\n}',
   },
   {
     name: 'ContentBlockMap',
@@ -4059,6 +4249,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
+    name: 'DailyReport',
+    declaration: 'export interface DailyReport {\n    readonly id: ReportId;\n    readonly date: string;\n    readonly rows: ReportRow[];\n    readonly totals: Partial<Record<FeeType, number>>;\n    readonly bySource: Partial<Record<Source, {\n        count: number;\n        amount: number;\n    }>>;\n    readonly grandTotal: number;\n}',
+  },
+  {
     name: 'DeepSeekLlmApiExtensionMap',
     declaration: 'export interface DeepSeekLlmApiExtensionMap {\n}',
   },
@@ -4081,6 +4275,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DiffResultView',
     declaration: 'export interface DiffResultView {\n    card: \'diff\';\n    title?: string;\n    diffs: FileDiff[];\n}',
+  },
+  {
+    name: 'DiffRow',
+    declaration: 'export interface DiffRow {\n    readonly kind: \'missing\' | \'extra\' | \'amount\';\n    readonly shopNo: string;\n    readonly merchantName: string;\n    readonly source: string;\n    readonly reportAmount: number | undefined;\n    readonly ledgerAmount: number | undefined;\n    readonly note: string;\n}',
   },
   {
     name: 'DirectoryEntry',
@@ -4199,8 +4397,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    tools?: ToolSchema[];\n}',
   },
   {
+    name: 'FeeBalance',
+    declaration: 'export interface FeeBalance {\n    readonly feeType: FeeType;\n    readonly label: string;\n    readonly cents: number;\n}',
+  },
+  {
     name: 'FeedbackCategory',
     declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
+  },
+  {
+    name: 'FeeType',
+    declaration: 'export type FeeType = typeof FEE_TYPES[number];',
   },
   {
     name: 'FiberState',
@@ -4233,6 +4439,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'FileUploadValue',
     declaration: 'export interface FileUploadValue {\n    readonly receiptId: FileUploadReceiptId;\n    readonly file: FileAttachmentRef;\n}',
+  },
+  {
+    name: 'FinanceCounts',
+    declaration: 'export interface FinanceCounts {\n    readonly batches: number;\n    readonly merchants: number;\n    readonly receivables: number;\n    readonly transactions: number;\n    readonly pending: number;\n    readonly platformTxns: number;\n    readonly allocations: number;\n}',
   },
   {
     name: 'FinishReason',
@@ -4365,6 +4575,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ImageVariantId',
     declaration: 'export type ImageVariantId = Branded<\'ImageVariantId\'>;',
+  },
+  {
+    name: 'ImportKind',
+    declaration: 'export type ImportKind = \'bank_ccb\' | \'wechat\' | \'unionpay_pos\' | \'recharge\' | \'receivable\' | \'ledger\' | \'voucher\' | \'pingan\';',
+  },
+  {
+    name: 'ImportOutcome',
+    declaration: 'export type ImportOutcome = {\n    kind: \'bank_ccb\';\n    duplicate: false;\n    result: BankImportResult;\n    split: SplitResult;\n} | {\n    kind: \'wechat\' | \'unionpay_pos\' | \'recharge\';\n    duplicate: false;\n    result: PlatformImportResult;\n    split: SplitResult;\n} | {\n    kind: \'receivable\';\n    duplicate: false;\n    result: ReceivableImportResult;\n} | {\n    kind: \'ledger\' | \'voucher\';\n    duplicate: false;\n    result: ReferenceImportResult;\n} | {\n    kind: ImportKind;\n    duplicate: true;\n    batchId: string;\n    importedAt: string;\n};',
   },
   {
     name: 'IndexInjection',
@@ -4607,6 +4825,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
   },
   {
+    name: 'Merchant',
+    declaration: 'export interface Merchant {\n    readonly id: MerchantId;\n    readonly shopNo: string;\n    readonly name: string;\n    readonly brand: string;\n    readonly floor: string;\n}',
+  },
+  {
+    name: 'MerchantBalance',
+    declaration: 'export interface MerchantBalance {\n    readonly shopNo: string;\n    readonly name: string;\n    readonly brand: string;\n    readonly openCents: number;\n    readonly byFee: readonly FeeBalance[];\n}',
+  },
+  {
+    name: 'MerchantId',
+    declaration: 'export type MerchantId = Branded<\'MerchantId\'>;',
+  },
+  {
     name: 'Message',
     declaration: 'export interface Message {\n    readonly id: MessageId;\n    readonly role: \'system\' | \'user\' | \'assistant\';\n    readonly content: ContentBlock[];\n    readonly source: MessageSource;\n}',
   },
@@ -4747,8 +4977,40 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type OptionalSessionSeq = SessionSeq | null;',
   },
   {
+    name: 'OverdueRow',
+    declaration: 'export interface OverdueRow extends MerchantBalance {\n    readonly oldestDueDate: string | undefined;\n}',
+  },
+  {
+    name: 'ParsedPayment',
+    declaration: 'export interface ParsedPayment {\n    readonly amount: number;\n    readonly date: string;\n    readonly merchant: string;\n    readonly feeType: FeeType | undefined;\n    readonly txnNo: string;\n}',
+  },
+  {
+    name: 'PaymentImageExtraction',
+    declaration: 'export interface PaymentImageExtraction {\n    amountText: string;\n    paymentDate?: string | undefined;\n    transactionNo?: string | undefined;\n    payee?: string | undefined;\n    merchantText?: string | undefined;\n    feeText?: string | undefined;\n}',
+  },
+  {
+    name: 'PaymentPreview',
+    declaration: 'export interface PaymentPreview {\n    candidates: {\n        shopNo: string;\n        name: string;\n        brand: string;\n    }[];\n    summary: string;\n    ready: boolean;\n}',
+  },
+  {
+    name: 'PendingItem',
+    declaration: 'export interface PendingItem {\n    readonly itemId: string;\n    readonly kind: \'bank\' | \'pos\';\n    readonly date: string;\n    readonly source: Transaction[\'source\'];\n    readonly amount: number;\n    readonly payerName: string;\n    readonly remark: string;\n    readonly suggestions: readonly Suggestion[];\n}',
+  },
+  {
     name: 'PermissionSelect',
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
+  },
+  {
+    name: 'PlatformImportResult',
+    declaration: 'export interface PlatformImportResult {\n    readonly batchId: BatchId;\n    readonly platform: PlatformTxn[\'platform\'] | \'recharge\';\n    readonly merchantAccounts: string[];\n    readonly orders: number;\n    readonly inserted: number;\n    readonly duplicates: number;\n    readonly netTotal: number;\n    readonly withMerchantHint: number;\n}',
+  },
+  {
+    name: 'PlatformTxn',
+    declaration: 'export interface PlatformTxn {\n    readonly id: PlatformTxnId;\n    readonly transactionId: TransactionId | undefined;\n    readonly platform: \'wechat\' | \'pos\';\n    readonly merchantAccount: string;\n    readonly orderNo: string;\n    readonly txnTime: string;\n    readonly amount: number;\n    readonly fee: number;\n    readonly net: number;\n    readonly note: string;\n    readonly merchantHint: string;\n    readonly shopNo: string | undefined;\n    readonly merchantId: MerchantId | undefined;\n}',
+  },
+  {
+    name: 'PlatformTxnId',
+    declaration: 'export type PlatformTxnId = Branded<\'PlatformTxnId\'>;',
   },
   {
     name: 'PostToolDecision',
@@ -4875,8 +5137,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
   },
   {
+    name: 'ReceiptToday',
+    declaration: 'export interface ReceiptToday {\n    readonly source: string;\n    readonly count: number;\n    readonly cents: number;\n}',
+  },
+  {
+    name: 'ReceivableId',
+    declaration: 'export type ReceivableId = Branded<\'ReceivableId\'>;',
+  },
+  {
+    name: 'ReceivableImportResult',
+    declaration: 'export interface ReceivableImportResult {\n    readonly batchId: BatchId;\n    readonly sheets: string[];\n    readonly merchants: number;\n    readonly receivables: number;\n    readonly skipped: number;\n    readonly unknownFeeLabels: string[];\n}',
+  },
+  {
+    name: 'ReceivableSummary',
+    declaration: 'export interface ReceivableSummary {\n    readonly merchantCount: number;\n    readonly openCents: number;\n    readonly byFee: readonly FeeBalance[];\n}',
+  },
+  {
     name: 'RedactedSecret',
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
+  },
+  {
+    name: 'ReferenceImportResult',
+    declaration: 'export interface ReferenceImportResult {\n    readonly batchId: BatchId;\n    readonly rows: number;\n    readonly dateRange: {\n        from: string;\n        to: string;\n    } | undefined;\n    readonly extraColumns: string[];\n}',
+  },
+  {
+    name: 'RegisterResult',
+    declaration: 'export interface RegisterResult {\n    readonly transactionId: TransactionId;\n    readonly parsed: ParsedPayment;\n    readonly merchantShopNo: string | undefined;\n    readonly merchantName: string | undefined;\n    readonly booked: boolean;\n    readonly pending: boolean;\n}',
   },
   {
     name: 'RemoteError',
@@ -4897,6 +5183,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ReplayEnvelope',
     declaration: 'export interface ReplayEnvelope {\n    response: unknown;\n    blocks?: readonly unknown[];\n}',
+  },
+  {
+    name: 'ReportId',
+    declaration: 'export type ReportId = Branded<\'ReportId\'>;',
+  },
+  {
+    name: 'ReportRow',
+    declaration: 'export interface ReportRow {\n    readonly seq: number;\n    readonly date: string;\n    readonly shopNo: string;\n    readonly merchantName: string;\n    readonly brand: string;\n    readonly subtotal: number;\n    readonly source: Source;\n    readonly periodStart: string | undefined;\n    readonly periodEnd: string | undefined;\n    readonly amounts: Partial<Record<FeeType, number>>;\n    readonly remark: string;\n    readonly key: string;\n}',
   },
   {
     name: 'RequestContext',
@@ -5575,6 +5869,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SettingsUpdateSource = \'update\' | \'provider\';',
   },
   {
+    name: 'SettlementMatch',
+    declaration: 'export interface SettlementMatch {\n    readonly transactionId: TransactionId;\n    readonly date: string;\n    readonly channel: \'tenpay\' | \'unionpay\';\n    readonly account: string;\n    readonly amount: number;\n    readonly detailDays: string[];\n    readonly detailRows: number;\n    readonly detailNet: number;\n    readonly matched: boolean;\n}',
+  },
+  {
     name: 'ShellExecRequest',
     declaration: 'export interface ShellExecRequest {\n    command: string;\n    workdir?: string | undefined;\n    timeoutMs?: number | undefined;\n    stdoutMaxBytes?: number | undefined;\n    signal?: AbortSignal | undefined;\n    stdin?: string | undefined;\n    env?: Record<string, string> | undefined;\n    dshEnv?: DshEnvironment | undefined;\n    sandboxPolicy?: SandboxExecutionPolicy | undefined;\n}',
   },
@@ -5667,6 +5965,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SkillViewOptions extends SkillLookupOptions {\n    readonly scope?: ScopeKey | undefined;\n}',
   },
   {
+    name: 'Source',
+    declaration: 'export type Source = \'bank2038\' | \'bank2035\' | \'pingan\' | \'pos\' | \'wechat706\' | \'wechat380\' | \'dingtalk\';',
+  },
+  {
     name: 'SpawnTeammateRequest',
     declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly signal: AbortSignal;\n}',
   },
@@ -5689,6 +5991,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SpillSource',
     declaration: 'export type SpillSource = {\n    kind: \'tool\';\n    toolName: string;\n    callId: ToolCallId;\n    label: string;\n} | {\n    kind: \'session-reference\';\n    sessionId: SessionId;\n    label: string;\n};',
+  },
+  {
+    name: 'Split',
+    declaration: 'export interface Split {\n    readonly feeType: FeeType;\n    readonly amount: number;\n    readonly periodStart?: string | undefined;\n    readonly periodEnd?: string | undefined;\n}',
+  },
+  {
+    name: 'SplitResult',
+    declaration: 'export interface SplitResult {\n    readonly matched: SettlementMatch[];\n    readonly unmatched: SettlementMatch[];\n}',
   },
   {
     name: 'StorageBackend',
@@ -5847,6 +6157,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubprocessTerminalSpawnSpec {\n    argv: readonly string[];\n    cwd: string;\n    env?: Record<string, string> | undefined;\n    rows: number;\n    cols: number;\n    graceMs: number;\n    signal?: AbortSignal | undefined;\n}',
   },
   {
+    name: 'Suggestion',
+    declaration: 'export interface Suggestion {\n    readonly merchantId: MerchantId;\n    readonly shopNo: string;\n    readonly name: string;\n    readonly brand: string;\n    readonly confidence: number;\n    readonly reason: string;\n    readonly feeTypes: readonly FeeType[];\n    readonly months: readonly string[];\n}',
+  },
+  {
     name: 'SurfaceEvent',
     declaration: 'export type SurfaceEvent = SessionEvent<SurfaceEventType>;',
   },
@@ -5881,6 +6195,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaxRate',
+    declaration: 'export type TaxRate = 0 | 0.03 | 0.06 | 0.09 | 0.13;',
   },
   {
     name: 'TeamId',
@@ -6131,6 +6449,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ToolSchema {\n    name: string;\n    description: string;\n    parameters: Record<string, unknown>;\n}',
   },
   {
+    name: 'Transaction',
+    declaration: 'export interface Transaction {\n    readonly id: TransactionId;\n    readonly batchId: BatchId | undefined;\n    readonly source: Source;\n    readonly channel: Channel;\n    readonly txnTime: string;\n    readonly amount: number;\n    readonly payerName: string;\n    readonly payerAccount: string;\n    readonly remark: string;\n    readonly txnNo: string;\n    readonly parentId: TransactionId | undefined;\n    readonly status: TransactionStatus;\n    readonly merchantId: MerchantId | undefined;\n    readonly confidence: number;\n    readonly raw: string;\n}',
+  },
+  {
+    name: 'TransactionId',
+    declaration: 'export type TransactionId = Branded<\'TransactionId\'>;',
+  },
+  {
+    name: 'TransactionStatus',
+    declaration: 'export type TransactionStatus = \'auto\' | \'manual\' | \'pending\' | \'settlement\' | \'ignored\';',
+  },
+  {
     name: 'TurnEndCancelCause',
     declaration: 'export type TurnEndCancelCause = AgentCancelCause | {\n    readonly kind: \'legacy\';\n};',
   },
@@ -6239,6 +6569,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface TypertTypeModel {\n    readonly name: string;\n    readonly declaration: string;\n}',
   },
   {
+    name: 'UnlabelledPos',
+    declaration: 'export interface UnlabelledPos {\n    readonly date: string;\n    readonly count: number;\n    readonly amount: number;\n}',
+  },
+  {
     name: 'UpdateTeamTaskRequest',
     declaration: 'export interface UpdateTeamTaskRequest {\n    readonly taskId: TeamTaskId;\n    readonly expectedRevision: number;\n    readonly action: TeamTaskAction;\n    readonly subject?: string;\n    readonly description?: string;\n    readonly blockedBy?: readonly TeamTaskId[];\n    readonly writeScopes?: readonly string[];\n    readonly owner?: string;\n}',
   },
@@ -6249,6 +6583,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'VerifiedWebhookDelivery',
     declaration: 'export interface VerifiedWebhookDelivery<K extends string = string> {\n    readonly kind: K;\n    readonly source: WebhookSourceId;\n    readonly deliveryId: WebhookDeliveryId;\n    readonly event: WebhookEventOf<K>;\n    readonly receivedAt: number;\n}',
+  },
+  {
+    name: 'VoucherBuild',
+    declaration: 'export interface VoucherBuild {\n    id: VoucherId;\n    date: string;\n    lines: VoucherLine[];\n    checks: {\n        balanced: boolean;\n        warnings: string[];\n    };\n}',
+  },
+  {
+    name: 'VoucherId',
+    declaration: 'export type VoucherId = Branded<\'VoucherId\'>;',
+  },
+  {
+    name: 'VoucherLine',
+    declaration: 'export interface VoucherLine {\n    date: string;\n    voucherNo: number;\n    lineNo: number;\n    summary: string;\n    subject: string;\n    subjectName: string;\n    debit: number;\n    credit: number;\n    warning?: string;\n}',
   },
   {
     name: 'WebBootBatch',

@@ -5,7 +5,13 @@ import type { DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from '.
 type FinanceRegistrationService = Pick<HyFinanceService, 'previewPayment' | 'confirmPayment'>
   & Partial<Pick<HyFinanceService, 'registerPaymentFromImage'>>
 
-/** Collect payment details without writing money until the user confirms a candidate. */
+/**
+ * Collect payment details without writing money until the user confirms a candidate.
+ * @param service - Finance service owning the operation.
+ * @param stream - Transport receiving the registered payment handler.
+ * @param vision - Optional screenshot extraction client.
+ * @returns The supplied Stream client with its payment handler installed.
+ */
 export function createFinanceDingtalkBridge(
   service: FinanceRegistrationService,
   stream: DingtalkStreamClient,

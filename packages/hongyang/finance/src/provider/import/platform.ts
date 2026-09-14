@@ -7,7 +7,7 @@
  */
 
 import type { DatabaseSync } from 'node:sqlite'
-import { newId, type BatchId, type PlatformTxnId } from '../../service/identifiers.ts'
+import { newId, type BatchId } from '../../service/identifiers.ts'
 import type { PlatformTxn } from '../../service/types.ts'
 import { toCents } from '../../rules/tax.ts'
 import { FinanceError } from '../../service/errors.ts'
@@ -92,7 +92,7 @@ export function importWechat(db: DatabaseSync, wb: Workbook): PlatformImportResu
     const note = text(row, columns, '商品名称')
     const hint = parseMerchantHint(note)
     out.push({
-      id: newId<PlatformTxnId>('ptx'),
+      id: newId('ptx'),
       transactionId: undefined,
       platform: 'wechat',
       merchantAccount: text(row, columns, '商户号'),
@@ -132,7 +132,7 @@ export function importUnionPayPos(db: DatabaseSync, wb: Workbook): PlatformImpor
     const note = text(row, columns, '付款附言')
     const orderNo = text(row, columns, '银商订单号') || text(row, columns, '流水号')
     out.push({
-      id: newId<PlatformTxnId>('ptx'),
+      id: newId('ptx'),
       transactionId: undefined,
       platform: 'pos',
       merchantAccount: text(row, columns, '商户号'),
@@ -178,7 +178,7 @@ export function importRecharge(db: DatabaseSync, wb: Workbook): PlatformImportRe
     const merchant = text(row, columns, '商户')
     const hint = parseMerchantHint(merchant)
     out.push({
-      id: newId<PlatformTxnId>('ptx'),
+      id: newId('ptx'),
       transactionId: undefined,
       platform: 'wechat',
       merchantAccount: 'recharge',
@@ -196,7 +196,11 @@ export function importRecharge(db: DatabaseSync, wb: Workbook): PlatformImportRe
   return finish(db, wb, 'recharge', 'recharge', out)
 }
 
-/** Whether a header row looks like a WeChat statement; used by kind detection. */
+/**
+ * Whether a header row looks like a WeChat statement; used by kind detection.
+ * @param rows - Input records to inspect or summarize.
+ * @returns Whether the expected WeChat labels are present.
+ */
 export function looksLikeWechat(rows: readonly Row[]): boolean {
   return rows.slice(0, 3).some(r => r.some(c => typeof c === 'string' && c.includes('微信订单号')))
 }

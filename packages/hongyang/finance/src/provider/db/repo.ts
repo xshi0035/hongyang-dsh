@@ -8,7 +8,12 @@ import type { DatabaseSync } from 'node:sqlite'
 import { newId, type BatchId, type MerchantId } from '../../service/identifiers.ts'
 import type { ImportBatch, ImportKind, Merchant, PlatformTxn, Transaction } from '../../service/types.ts'
 
-/** Run `fn` inside one transaction; rolls back on throw. */
+/**
+ * Run `fn` inside one transaction; rolls back on throw.
+ * @param db - Open finance database.
+ * @param fn - Synchronous operation whose writes commit together.
+ * @returns The operation result after commit.
+ */
 export function transaction<T>(db: DatabaseSync, fn: () => T): T {
   db.exec('BEGIN IMMEDIATE')
   try {
@@ -21,7 +26,12 @@ export function transaction<T>(db: DatabaseSync, fn: () => T): T {
   }
 }
 
-/** The batch already recorded for a file digest, if any. */
+/**
+ * The batch already recorded for a file digest, if any.
+ * @param db - Open finance database.
+ * @param sha256 - SHA-256 digest of the source file.
+ * @returns Existing batch metadata, or undefined.
+ */
 export function findBatchBySha(db: DatabaseSync, sha256: string): ImportBatch | undefined {
   const row = db.prepare('SELECT id, kind, file, sha256, rows, imported_at FROM import_batch WHERE sha256 = ?').get(sha256) as
     | { id: string; kind: string; file: string; sha256: string; rows: number; imported_at: string } | undefined
@@ -31,16 +41,32 @@ export function findBatchBySha(db: DatabaseSync, sha256: string): ImportBatch | 
   }
 }
 
-/** Record one import batch. */
+/**
+ * Record one import batch.
+ * @param db - Open finance database.
+ * @param kind - Selected or detected import kind.
+ * @param file - Source file path.
+ * @param sha256 - SHA-256 digest of the source file.
+ * @param rows - Number of imported source rows.
+ * @returns Stored import batch metadata.
+ */
 export function insertBatch(db: DatabaseSync, kind: ImportKind, file: string, sha256: string, rows: number): ImportBatch {
-  const id = newId<BatchId>('batch')
+  const id = newId('batch')
   const importedAt = new Date().toISOString()
   db.prepare('INSERT INTO import_batch (id, kind, file, sha256, rows, imported_at) VALUES (?, ?, ?, ?, ?, ?)')
     .run(id, kind, file, sha256, rows, importedAt)
   return { id, kind, file, sha256, rows, importedAt }
 }
 
-/** Insert or update a merchant by shop number; a blank name never overwrites a known one. */
+/**
+ * Insert or update a merchant by shop number; a blank name never overwrites a known one.
+ * @param db - Open finance database.
+ * @param shopNo - Selected shop number.
+ * @param name - Merchant name; blank retains the existing value.
+ * @param brand - Brand text; blank retains the existing value.
+ * @param floor - Floor text; blank retains the existing value.
+ * @returns Inserted or existing merchant identifier.
+ */
 export function upsertMerchant(db: DatabaseSync, shopNo: string, name: string, brand: string, floor: string): MerchantId {
   const existing = db.prepare('SELECT id, name, brand, floor FROM merchant WHERE shop_no = ?').get(shopNo) as
     | { id: string; name: string; brand: string; floor: string } | undefined
@@ -50,19 +76,28 @@ export function upsertMerchant(db: DatabaseSync, shopNo: string, name: string, b
     )
     return existing.id as MerchantId
   }
-  const id = newId<MerchantId>('mch')
+  const id = newId('mch')
   db.prepare('INSERT INTO merchant (id, shop_no, name, brand, floor) VALUES (?, ?, ?, ?, ?)').run(id, shopNo, name, brand, floor)
   return id
 }
 
-/** All merchants, for matching. */
+/**
+ * All merchants, for matching.
+ * @param db - Open finance database.
+ * @returns Merchant records sorted by shop number.
+ */
 export function listMerchants(db: DatabaseSync): Merchant[] {
   const rows = db.prepare('SELECT id, shop_no, name, brand, floor FROM merchant ORDER BY shop_no').all() as
     { id: string; shop_no: string; name: string; brand: string; floor: string }[]
   return rows.map(r => ({ id: r.id as MerchantId, shopNo: r.shop_no, name: r.name, brand: r.brand, floor: r.floor }))
 }
 
-/** Insert a transaction; returns false when its `(source, txn_no)` already exists. */
+/**
+ * Insert a transaction; returns false when its `(source, txn_no)` already exists.
+ * @param db - Open finance database.
+ * @param t - Receipt fields with integer-cent amounts.
+ * @returns True when inserted, false for a duplicate source reference.
+ */
 export function insertTransaction(db: DatabaseSync, t: Transaction): boolean {
   if (t.txnNo !== '') {
     const dup = db.prepare('SELECT 1 FROM "transaction" WHERE source = ? AND txn_no = ?').get(t.source, t.txnNo)
@@ -77,7 +112,12 @@ export function insertTransaction(db: DatabaseSync, t: Transaction): boolean {
   return true
 }
 
-/** Insert a platform detail row; returns false on a duplicate order. */
+/**
+ * Insert a platform detail row; returns false on a duplicate order.
+ * @param db - Open finance database.
+ * @param p - Platform detail with integer-cent amounts.
+ * @returns True when inserted, false for a duplicate platform order.
+ */
 export function insertPlatformTxn(db: DatabaseSync, p: PlatformTxn): boolean {
   const dup = db.prepare('SELECT 1 FROM platform_txn WHERE platform = ? AND merchant_account = ? AND order_no = ?')
     .get(p.platform, p.merchantAccount, p.orderNo)
@@ -91,7 +131,11 @@ export function insertPlatformTxn(db: DatabaseSync, p: PlatformTxn): boolean {
   return true
 }
 
-/** Map a database row of `"transaction"` to the domain record. */
+/**
+ * Map a database row of `"transaction"` to the domain record.
+ * @param r - SQLite row selected using transaction column names.
+ * @returns Typed receipt with optional null values converted to undefined.
+ */
 export function rowToTransaction(r: Record<string, unknown>): Transaction {
   return {
     id: r.id as Transaction['id'],

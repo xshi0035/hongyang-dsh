@@ -86,7 +86,10 @@ export class FinanceCardController {
     scope.subscribe(() => { this.publish() })
   }
 
-  /** The face the slot registration injects. */
+  /**
+   * The face the slot registration injects.
+   * @returns The slot-injected settings face bound to this controller.
+   */
   inject(): FinanceCardFace {
     return {
       hooks: { financeCard: this.store },
@@ -103,8 +106,8 @@ export class FinanceCardController {
 
   private storedText(field: FormField): string {
     const snapshot = this.scope.getSnapshot()
-    const value = (snapshot.value as Record<string, unknown> | undefined)?.[field]
-    if (value === undefined || value === null) return ''
+    const value = snapshot.value?.[field]
+    if (value === undefined) return ''
     return String(value)
   }
 
@@ -120,7 +123,7 @@ export class FinanceCardController {
   }
 
   /** The value a draft writes; `undefined` when unacceptable; `null` to clear. */
-  private parse(field: FormField, text: string): unknown | null | undefined {
+  private parse(field: FormField, text: string): string | number | boolean | null | undefined {
     if (isBoolField(field)) return text === 'true'
     if (isNumberField(field)) {
       if (text.trim() === '') return null
@@ -145,7 +148,7 @@ export class FinanceCardController {
 
   private async save(): Promise<void> {
     if (this.saving || this.staged.size === 0) return
-    const plan: { field: FormField; value: unknown | null }[] = []
+    const plan: { field: FormField; value: string | number | boolean | null }[] = []
     for (const [field, staged] of this.staged) {
       const value = staged === null ? null : this.parse(field, staged)
       if (value === undefined) return

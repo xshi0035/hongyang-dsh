@@ -50,7 +50,11 @@ export interface ResolvedConfig extends Config {
  */
 export function resolveConfig(config: Config): ResolvedConfig {
   return {
-    ...config,
     dbPath: config.dbPath.trim().length > 0 ? config.dbPath : dshHomePath('hongyang', 'finance.db'),
+    autoOpenCards: config.autoOpenCards,
+    compareToleranceCents: config.compareToleranceCents,
+    outputTaxSubject13: config.outputTaxSubject13,
+    outputTaxSubject3: config.outputTaxSubject3,
+    companyName: config.companyName,
   }
 }

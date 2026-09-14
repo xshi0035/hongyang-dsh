@@ -79,6 +79,9 @@ function mentionKeys(m: Merchant): string[] {
 
 /** Merchant lookups prepared once per run. */
 export class MerchantIndex {
+  /**
+   * Merchant records captured when this index was constructed.
+   */
   readonly merchants: readonly Merchant[]
   private readonly byKey = new Map<string, Merchant[]>()
   private readonly mentionables: { text: string; merchant: Merchant }[] = []
@@ -96,17 +99,29 @@ export class MerchantIndex {
     this.mentionables.sort((a, b) => b.text.length - a.text.length)
   }
 
-  /** Load every merchant from the database. */
+  /**
+   * Load every merchant from the database.
+   * @param db - Open finance database.
+   * @returns A merchant index snapshot for one matching run.
+   */
   static load(db: DatabaseSync): MerchantIndex {
     return new MerchantIndex(listMerchants(db))
   }
 
-  /** Merchants whose name or brand equals the key. */
+  /**
+   * Merchants whose name or brand equals the key.
+   * @param name - Merchant, brand, or payer name to match.
+   * @returns All exact normalized name or brand matches.
+   */
   byName(name: string): Merchant[] {
     return this.byKey.get(nameKey(name)) ?? []
   }
 
-  /** Merchants whose shop number equals, or ends with, `-<shopNo>` / `<shopNo>`. */
+  /**
+   * Merchants whose shop number equals, or ends with, `-<shopNo>` / `<shopNo>`.
+   * @param shopNo - Selected shop number.
+   * @returns Merchants matching the supplied shop components.
+   */
   byShop(shopNo: string): Merchant[] {
     const wantedAll = shopNo.trim().toUpperCase()
     if (wantedAll.length === 0) return []
@@ -119,7 +134,11 @@ export class MerchantIndex {
     })
   }
 
-  /** Merchants whose brand or name appears inside free text, longest mention first, each merchant once. */
+  /**
+   * Merchants whose brand or name appears inside free text, longest mention first, each merchant once.
+   * @param text - User payment text or accumulated conversation draft.
+   * @returns Each matched merchant once, paired with its matched text.
+   */
   mentionedIn(text: string): { merchant: Merchant; mention: string }[] {
     const hits: { merchant: Merchant; mention: string }[] = []
     let scan = text.replace(/的/g, '')
@@ -132,7 +151,11 @@ export class MerchantIndex {
     return hits
   }
 
-  /** Shop numbers that look like `5002A` / `B1-1003` / `3F-3026` inside free text. */
+  /**
+   * Shop numbers that look like `5002A` / `B1-1003` / `3F-3026` inside free text.
+   * @param text - User payment text or accumulated conversation draft.
+   * @returns Deduplicated merchants matching detected shop tokens.
+   */
   shopsMentionedIn(text: string): Merchant[] {
     const out: Merchant[] = []
     for (const m of text.matchAll(/\b([A-Z]?\d{1,2}F?-?\d{3,4}[A-Z]{0,2})\b/gi)) {
@@ -160,7 +183,13 @@ export function monthsInRemark(remark: string, date: string): string[] {
   return [...out]
 }
 
-/** Payer mapping lookup. */
+/**
+ * Payer mapping lookup.
+ * @param db - Open finance database.
+ * @param payerName - Payer name matched exactly.
+ * @param payerAccount - Payer account; blank-account mappings are also eligible.
+ * @returns Selected merchant and confirmation flag, or undefined.
+ */
 export function mappedMerchant(
   db: DatabaseSync, payerName: string, payerAccount: string,
 ): { merchantId: MerchantId; confirmed: boolean } | undefined {

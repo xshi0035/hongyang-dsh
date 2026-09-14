@@ -1,4 +1,4 @@
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { formatCents } from '../../rules/tax.ts'
 import { merchantBalance, overdue, receivableSummary, todayReceipts } from '../../provider/query/dashboard.ts'
@@ -6,7 +6,12 @@ const KINDS = ['receivable_summary', 'merchant_balance', 'overdue', 'today'] as 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 const money = (cents: number): string => formatCents(cents)
 const merchantText = (rows: readonly { shopNo: string; name: string; brand: string; openCents: number }[]): string[] => rows.map(row => row.shopNo + ' ' + row.name + (row.brand ? '（' + row.brand + '）' : '') + '：' + money(row.openCents) + ' 元')
-export function financeQueryTool(service: HyFinanceService) {
+/**
+ * Bind dashboard queries to one finance service.
+ * @param service - Finance service owning the operation.
+ * @returns The registry-ready finance_query tool.
+ */
+export function financeQueryTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_query',
     description: '查询财务数据。receivable_summary 返回应收未收汇总；merchant_balance 按铺位号、商户名或品牌查询欠费；overdue 查询逾期应收；today 查询指定日期已登记收款。金额由 provider 计算，单位元。',

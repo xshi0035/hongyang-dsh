@@ -7,7 +7,7 @@
  */
 
 import { join } from 'node:path'
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { FEE_RULES, FEE_TYPES } from '../../rules/fee-types.ts'
 import { formatCents } from '../../rules/tax.ts'
@@ -75,7 +75,7 @@ function summaryOf(meta: ReportMetaWire): string {
  * @param service - the finance service.
  * @returns the tool.
  */
-export function financeDailyReportTool(service: HyFinanceService) {
+export function financeDailyReportTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_daily_report',
     description: '收入日报表。action=build：把某一天所有已认领的收款汇成 34 列日报表。action=export 或 compare：生成 xlsx 后，用户需要查看时必须在同一轮自动调用 Univer 的 univer_import 打开，不能要求用户再次发打开指令。action=compare：同时与已导入台账逐行比对。日期格式 YYYY-MM-DD。',

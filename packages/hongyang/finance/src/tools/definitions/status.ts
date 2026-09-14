@@ -5,7 +5,7 @@
  * @module @deepseek-ai/dsh-hy-finance/tools/definitions/status
  */
 
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { FEE_RULES, FEE_TYPES } from '../../rules/fee-types.ts'
 
@@ -14,7 +14,7 @@ import { FEE_RULES, FEE_TYPES } from '../../rules/fee-types.ts'
  * @param service - the finance service.
  * @returns the tool.
  */
-export function financeStatusTool(service: HyFinanceService) {
+export function financeStatusTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_status',
     description: '查看弘阳财务数据库的当前状态：已导入的批次、商户与应收数量、流水与待认领笔数、分配记录数，以及尚未确认的科目编码。开始导入、认领或出报表前先调用。',
@@ -53,7 +53,7 @@ export function financeStatusTool(service: HyFinanceService) {
     },
     async execute() {
       const unconfirmed = FEE_TYPES.filter(type => FEE_RULES[type].subject === null).map(type => FEE_RULES[type].label)
-      return { dbPath: service.config.dbPath, counts: service.counts(), unconfirmedSubjects: unconfirmed }
+      return Promise.resolve({ dbPath: service.config.dbPath, counts: service.counts(), unconfirmedSubjects: unconfirmed })
     },
   })
 }

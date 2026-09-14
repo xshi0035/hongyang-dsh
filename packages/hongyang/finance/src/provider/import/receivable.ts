@@ -9,7 +9,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { feeTypesFromText, type FeeType } from '../../rules/fee-types.ts'
 import { toCents } from '../../rules/tax.ts'
-import { newId, type BatchId, type ReceivableId } from '../../service/identifiers.ts'
+import { newId, type BatchId } from '../../service/identifiers.ts'
 import { findHeader, isoDate, monthOf, periodRange, text, type Row, type Workbook } from './read-sheet.ts'
 import { insertBatch, transaction, upsertMerchant } from '../db/repo.ts'
 
@@ -163,7 +163,7 @@ export function importReceivable(db: DatabaseSync, wb: Workbook): ReceivableImpo
       const merchantId = merchantIds.get(r.shopNo)
       if (merchantId === undefined) { skipped++; continue }
       insert.run(
-        newId<ReceivableId>('rcv'), merchantId, r.feeType, r.period, r.periodStart ?? null, r.periodEnd ?? null, r.dueDate ?? null,
+        newId('rcv'), merchantId, r.feeType, r.period, r.periodStart ?? null, r.periodEnd ?? null, r.dueDate ?? null,
         r.due, r.relief, r.received, r.unpaid, r.raw,
       )
     }

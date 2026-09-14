@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { defineTool, type ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { HyFinanceService } from '../../service/finance-service.ts'
 import { compareVoucher } from '../../provider/voucher/compare.ts'
 import { exportVoucher } from '../../provider/voucher/export.ts'
@@ -8,7 +8,12 @@ import type { VoucherMetaWire } from '../../shared/wire.ts'
 const ACTIONS = ['build', 'export', 'compare'] as const
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 
-export function financeVoucherTool(service: HyFinanceService) {
+/**
+ * Bind voucher generation, export, and comparison to one finance service.
+ * @param service - Finance service owning the operation.
+ * @returns The registry-ready finance_voucher tool.
+ */
+export function financeVoucherTool(service: HyFinanceService): ToolDefinition {
   return defineTool({
     name: 'finance_voucher',
     description: '从指定日期日报表生成金蝶 21 列凭证，校验借贷平衡和税率科目，并可与客户 voucher_row 逐行比较。用户要求出凭证、导出或查看时，agent 必须在同一轮自动调用 Univer 的 univer_import 打开 xlsx，不要等待用户再次说明。',
