@@ -13,7 +13,7 @@ export function createDingtalkStreamClient(config: DingtalkConfig, imageDownload
     delivered.add(downstream.headers.messageId)
     if (delivered.size > 1000) delivered.delete(delivered.values().next().value as string)
     for (const handler of handlers) {
-      void dispatchRobotMessage(downstream, handler, imageDownloader).finally(() => {
+      void dispatchRobotMessage(downstream, handler, imageDownloader, config).finally(() => {
         client.socketCallBackResponse(downstream.headers.messageId, { status: 'SUCCESS' })
       })
     }
@@ -29,6 +29,7 @@ export function createDingtalkStreamClient(config: DingtalkConfig, imageDownload
       return () => handlers.delete(handler)
     },
     onCard(handler) { cardHandlers.add(handler); return () => cardHandlers.delete(handler) },
+    sendCard(options) { return sendDingtalkInteractiveCard(config, options) },
     async connect() {
       if (!connected) {
         await client.connect()
@@ -83,16 +84,22 @@ export async function sendDingtalkInteractiveCard(
   const token = (await tokenResponse.json()) as { accessToken?: string }
   if (!token.accessToken) throw new Error('钉钉 access token 响应缺少 accessToken')
   const body = {
-    cardTemplateId: options.templateId, robotCode: config.clientId,
-    callbackRouteKey: options.callbackRouteKey, outTrackId: `hy-${Date.now()}`,
-    cardData: { cardParamMap: options.cardData },
-    ...(options.conversationId ? { openConversationId: options.conversationId, conversationType: 2 } : {}),
-    ...(options.userId ? { receiverUserIdList: [options.userId], conversationType: 1 } : {}),
+    userId: options.userId,
+    cardTemplateId: options.templateId,
+    robotCode: config.clientId,
+    outTrackId: `hy-${Date.now()}`,
+    callbackType: 'STREAM',
+    cardData: { cardParamMap: Object.fromEntries(Object.entries(options.cardData).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)])) },
+    ...(options.userId ? { openSpaceId: `dtv1.card//im_robot.${options.userId}`, userIdType: 1 } : {}),
   }
-  const response = await fetchImpl('https://api.dingtalk.com/v1.0/im/interactiveCards/send', {
+  const response = await fetchImpl('https://api.dingtalk.com/v1.0/card/instances/createAndDeliver', {
     method: 'POST', headers: { authorization: `Bearer ${token.accessToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
   })
-  if (!response.ok) throw new Error(`钉钉互动卡片发送失败：${response.status}`)
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    console.error(`hy-dingtalk: card send failed ${response.status}`, detail)
+    throw new Error(`钉钉互动卡片发送失败：${response.status}${detail ? ` ${detail}` : ''}`)
+  }
 }
 
 /** Download a DingTalk robot image and return it as a data URL for vision input. */
@@ -134,6 +141,7 @@ async function dispatchRobotMessage(
   downstream: DWClientDownStream,
   handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>,
   imageDownloader?: DingtalkImageDownloader,
+  config?: DingtalkConfig,
 ) {
   if (downstream.headers.topic !== TOPIC_ROBOT) return
   const raw = JSON.parse(downstream.data) as unknown as {
@@ -161,6 +169,14 @@ async function dispatchRobotMessage(
     text,
     ...(imageUrl === undefined ? {} : { imageUrl }),
   })
+  if (reply.card !== undefined && config !== undefined) {
+    try {
+      await sendDingtalkInteractiveCard(config, { ...reply.card, userId: raw.senderStaffId || raw.senderId })
+      return
+    } catch {
+      // Card delivery failures fall back to the text reply below.
+    }
+  }
   await fetch(raw.sessionWebhook, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -5,7 +5,10 @@ export interface DingtalkTextMessage {
   readonly text: string
   readonly imageUrl?: string
 }
-export interface DingtalkReply { readonly text: string }
+export interface DingtalkReply {
+  readonly text: string
+  readonly card?: DingtalkInteractiveCardOptions
+}
 export interface DingtalkCardCallback {
   readonly deliveryId: string
   readonly userId?: string
@@ -17,6 +20,7 @@ export interface DingtalkStreamClient {
   close(): Promise<void>
   onMessage(handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>): () => void
   onCard(handler: (callback: DingtalkCardCallback) => Promise<void>): () => void
+  sendCard?(options: DingtalkInteractiveCardOptions): Promise<void>
 }
 export interface DingtalkConfig {
   readonly clientId: string
@@ -28,7 +32,7 @@ export interface DingtalkInteractiveCardOptions {
   readonly conversationId?: string
   readonly userId?: string
   readonly cardData: Record<string, string>
-  readonly callbackRouteKey: string
+  readonly callbackRouteKey?: string
 }
 export interface DingtalkImageDownloader {
   download(downloadCode: string): Promise<string>

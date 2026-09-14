@@ -57,7 +57,12 @@ export function createFinanceDingtalkBridge(
         : preview.ready
           ? '请核对商户和金额，回复“确认 编号”后登记。'
           : '请补充金额或费项；之前的信息已保留。'
-      return { text: `付款待确认（尚未登记）\n${preview.summary}\n${choices}\n${question}\n可回复“取消”；草稿30分钟后过期。` }
+      const textReply = `付款待确认（尚未登记）\n${preview.summary}\n${choices}\n${question}\n可回复“取消”；草稿30分钟后过期。`
+      const templateId = process.env.DINGTALK_CARD_TEMPLATE_ID?.trim()
+      if (templateId && preview.candidates.length > 0 && stream.sendCard) {
+        return { text: textReply, card: { templateId, userId: message.userId, cardData: { content: '', summary: preview.summary, merchantList: JSON.stringify(preview.candidates.map(m => ({ ...m, displayName: m.brand || m.name }))) } } }
+      }
+      return { text: textReply }
     } catch (error) {
       return { text: `暂未登记，原草稿已保留：${error instanceof Error ? error.message : '请补充付款信息'}` }
     }
