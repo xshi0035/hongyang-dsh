@@ -1,10 +1,11 @@
-import { DWClient, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
-import type { DingtalkConfig, DingtalkImageDownloader, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
+import { DWClient, TOPIC_CARD, TOPIC_ROBOT, type DWClientDownStream } from 'dingtalk-stream'
+import type { DingtalkCardCallback, DingtalkConfig, DingtalkImageDownloader, DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
 /** Production adapter for DingTalk Stream. Credentials are supplied by the host. */
 export function createDingtalkStreamClient(config: DingtalkConfig, imageDownloader?: DingtalkImageDownloader): DingtalkStreamClient {
   const client = new DWClient(config)
   const handlers = new Set<(message: DingtalkTextMessage) => Promise<DingtalkReply>>()
+  const cardHandlers = new Set<(callback: DingtalkCardCallback) => Promise<void>>()
   const delivered = new Set<string>()
   let connected = false
   client.registerCallbackListener(TOPIC_ROBOT, (downstream) => {
@@ -17,11 +18,17 @@ export function createDingtalkStreamClient(config: DingtalkConfig, imageDownload
       })
     }
   })
+  client.registerCallbackListener(TOPIC_CARD, (downstream) => {
+    void dispatchCardCallback(downstream, cardHandlers).finally(() => {
+      client.socketCallBackResponse(downstream.headers.messageId, { status: 'SUCCESS' })
+    })
+  })
   return {
     onMessage(handler) {
       handlers.add(handler)
       return () => handlers.delete(handler)
     },
+    onCard(handler) { cardHandlers.add(handler); return () => cardHandlers.delete(handler) },
     async connect() {
       if (!connected) {
         await client.connect()
@@ -37,6 +44,21 @@ export function createDingtalkStreamClient(config: DingtalkConfig, imageDownload
       return Promise.resolve()
     },
   }
+}
+
+async function dispatchCardCallback(
+  downstream: DWClientDownStream,
+  handlers: Set<(callback: DingtalkCardCallback) => Promise<void>>,
+): Promise<void> {
+  if (downstream.headers.topic !== TOPIC_CARD) return
+  const raw = JSON.parse(downstream.data) as Record<string, unknown>
+  const callback: DingtalkCardCallback = {
+    deliveryId: downstream.headers.messageId,
+    ...(typeof raw.userId === 'string' ? { userId: raw.userId } : {}),
+    ...(typeof raw.conversationId === 'string' ? { conversationId: raw.conversationId } : {}),
+    value: raw,
+  }
+  for (const handler of handlers) await handler(callback)
 }
 
 /** Read deployment credentials without making missing configuration fatal. */

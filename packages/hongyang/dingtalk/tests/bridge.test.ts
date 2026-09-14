@@ -23,6 +23,7 @@ await test('collect, preview, confirm once; isolate users, reject invalid select
   }, {
     connect: () => Promise.resolve(), close: () => Promise.resolve(),
     onMessage(next) { handler = next; return () => {} },
+    onCard: () => () => {},
   })
   let sequence = 0
   const send = (text: string, userId = 'u') => handler({ text, userId, conversationId: 'c', deliveryId: String(++sequence) })

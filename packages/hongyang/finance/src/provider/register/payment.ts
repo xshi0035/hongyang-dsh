@@ -27,21 +27,21 @@ function dateOf(text: string): string {
   const [, year, month, day] = match
   return [year ?? '', month?.padStart(2, '0') ?? '', day?.padStart(2, '0') ?? ''].join('-')
 }
+function chineseAmount(text: string): string | undefined {
+  const hit = text.match(/([零〇一二两三四五六七八九十百千万点]+)元/u)?.[1]
+  if (!hit) return undefined
+  const digit: Record<string, number> = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
+  let total = 0; let section = 0; let number = 0
+  for (const ch of hit) { if (digit[ch] !== undefined) number = digit[ch] ?? 0; else if (ch === '十' || ch === '百' || ch === '千' || ch === '万') { const unit = ({ 十: 10, 百: 100, 千: 1000, 万: 10000 } as Record<string, number>)[ch] ?? 1; if (unit === 10000) { total += (section + number) * unit; section = 0; number = 0 } else { section += (number || 1) * unit; number = 0 } } else if (ch === '点') return `${total + section + number}.0` }
+  return String(total + section + number)
+}
 function amountOf(text: string): number {
-  // A shop number or date is never a payment amount. Require a currency unit
-  // or a fee/amount label immediately before a bare number.
-  const values = [...text.matchAll(/(?<![\d.\-])(?:¥|￥)?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:元|块)/gu)]
-    .map(match => match[1] ?? '')
-  if (values.length === 0) {
-    const labels = ['金额', '收款', ...FEE_TYPE_ALIASES.map(([alias]) => alias)].join('|')
-    const pattern = new RegExp(`(?:${labels})[：:\\s]*([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)(?=$|[\\s，,。；;])`, 'gu')
-    values.push(...[...text.matchAll(pattern)].map(match => match[1] ?? ''))
-  }
+  const values = [...text.matchAll(/(?<![\d.\-])(?:¥|￥)?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:元|块)/gu)].map(match => match[1] ?? '')
+  if (values.length === 0) { const labels = ['金额', '收款', ...FEE_TYPE_ALIASES.map(([alias]) => alias)].join('|'); const pattern = new RegExp(`(?:${labels})[：:\\s]*([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)(?=$|[\\s，,。；;])`, 'gu'); values.push(...[...text.matchAll(pattern)].map(match => match[1] ?? '')) }
+  if (values.length === 0) { const chinese = chineseAmount(text); if (chinese) values.push(chinese) }
   if (values.length > 1) throw new Error('检测到多个金额，请取消当前草稿后按每笔付款分别发送')
   const amount = toCents(values[0] ?? '')
-  if (amount === undefined || !Number.isSafeInteger(amount) || amount <= 0) {
-    throw new Error('付款登记需要正数金额，例如“电费 500 元”')
-  }
+  if (amount === undefined || !Number.isSafeInteger(amount) || amount <= 0) throw new Error('付款登记需要正数金额，例如“电费 500 元”')
   return amount
 }
 function feeOf(text: string): FeeType | undefined {

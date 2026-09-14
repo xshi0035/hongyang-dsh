@@ -6,10 +6,17 @@ export interface DingtalkTextMessage {
   readonly imageUrl?: string
 }
 export interface DingtalkReply { readonly text: string }
+export interface DingtalkCardCallback {
+  readonly deliveryId: string
+  readonly userId?: string
+  readonly conversationId?: string
+  readonly value: Record<string, unknown>
+}
 export interface DingtalkStreamClient {
   connect(): Promise<void>
   close(): Promise<void>
   onMessage(handler: (message: DingtalkTextMessage) => Promise<DingtalkReply>): () => void
+  onCard(handler: (callback: DingtalkCardCallback) => Promise<void>): () => void
 }
 export interface DingtalkConfig {
   readonly clientId: string
