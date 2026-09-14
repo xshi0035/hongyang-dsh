@@ -1,62 +1,58 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { openFinanceDatabase } from '@deepseek-ai/dsh-hy-finance/src/provider/db/schema.ts'
-import { registerPayment } from '@deepseek-ai/dsh-hy-finance/src/provider/register/payment.ts'
-import { registerPaymentFromImage, type PaymentImageExtraction } from '@deepseek-ai/dsh-hy-finance/src/provider/register/image.ts'
+import { previewPayment, confirmPayment } from '@deepseek-ai/dsh-hy-finance/src/provider/register/conversation.ts'
+import { parsePaymentText } from '@deepseek-ai/dsh-hy-finance/src/provider/register/payment.ts'
 import { createFinanceDingtalkBridge } from '../src/bridge.ts'
-import type { DingtalkStreamClient, DingtalkTextMessage, DingtalkReply } from '../src/types.ts'
+import type { DingtalkTextMessage, DingtalkReply } from '../src/types.ts'
 
-const extraction = {
-  amountText: '￥500.00', paymentDate: '2026-04-03 15:26:40', transactionNo: 'ABC123',
-  payee: '衡阳诚远商业管理有限公司', merchantText: '围辣转转火锅', feeText: '电费',
-}
-const options = { companyName: extraction.payee }
-
-await test('downloaded picture and text reach finance storage and a provider-formatted reply', async () => {
-  const db = await openFinanceDatabase(':memory:')
-  let handler: ((message: DingtalkTextMessage) => Promise<DingtalkReply>) | undefined
-  const stream: DingtalkStreamClient = {
-    connect: () => Promise.resolve(), close: () => Promise.resolve(),
-    onMessage(next) { handler = next; return () => { handler = undefined } },
-  }
-  const service = {
-    registerPayment: (text: string) => registerPayment(db, text),
-    registerPaymentFromImage: (fields: PaymentImageExtraction) => registerPaymentFromImage(db, fields, options),
-  }
-  try {
-    db.exec("INSERT INTO merchant (id,shop_no,name,brand) VALUES ('m','A01','围辣转转火锅','围辣转转火锅')")
-    createFinanceDingtalkBridge(service, stream, {
-      async *stream(request) {
-        assert.equal(request.textHint, '围辣转转火锅 电费')
-        assert.equal(request.imageDataUrl, 'data:image/png;base64,AQID')
-        yield JSON.stringify(extraction)
-      },
-    })
-    assert.ok(handler)
-    const reply = await handler({
-      deliveryId: 'picture-1', userId: 'operator', conversationId: 'test',
-      text: '围辣转转火锅 电费', imageUrl: 'data:image/png;base64,AQID',
-    })
-    assert.equal(reply.text, '已登记：A01 围辣转转火锅 后付电费 500.00 元。')
-    const saved = db.prepare('SELECT txn_no,txn_time,amount FROM "transaction"').get()
-    assert.equal(saved?.txn_no, 'ABC123')
-    assert.equal(saved?.txn_time, '2026-04-03 15:26:40')
-    assert.equal(saved?.amount, 50000)
-    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM allocation').get()?.n, 1)
-    const invalid = await handler({ deliveryId: 'text-2', userId: 'operator', conversationId: 'test', text: '没有金额' })
-    assert.match(invalid.text, /付款登记未完成/)
-    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM "transaction"').get()?.n, 1)
-  } finally { db.close() }
+await test('merchant numbers are not amounts; ambiguous amounts are rejected', () => {
+  assert.equal(parsePaymentText('B1-1003 作业帮 电费 200').amount, 20000)
+  assert.equal(parsePaymentText('2026-04-03 B1-1003 电费 200元').amount, 20000)
+  assert.throws(() => parsePaymentText('B1-1003 作业帮'), /需要正数金额/)
+  assert.throws(() => parsePaymentText('电费200元 水费300元'), /多个金额/)
 })
 
-await test('unconfigured images never fall through to text registration', async () => {
-  let handler: ((message: DingtalkTextMessage) => Promise<DingtalkReply>) | undefined
-  const stream: DingtalkStreamClient = {
+await test('collect, preview, confirm once; isolate users, reject invalid selections and retain failed drafts', async () => {
+  const db = await openFinanceDatabase(':memory:')
+  let handler!: (message: DingtalkTextMessage) => Promise<DingtalkReply>
+  let fail = false
+  createFinanceDingtalkBridge({
+    previewPayment: text => previewPayment(db, text),
+    confirmPayment: (text, shop) => { if (fail) throw new Error('temporary failure'); return confirmPayment(db, text, shop) },
+  }, {
     connect: () => Promise.resolve(), close: () => Promise.resolve(),
-    onMessage(next) { handler = next; return () => { handler = undefined } },
-  }
-  createFinanceDingtalkBridge({ registerPayment: () => { throw new Error('must not register') } }, stream)
-  assert.ok(handler)
-  const result = await handler({ deliveryId: '1', userId: 'u', conversationId: 'c', text: '电费500元', imageUrl: 'downloadCode:code' })
-  assert.equal(result.text, '已收到付款截图，但图片识别尚未配置；请补充一句商户和费项文字。')
+    onMessage(next) { handler = next; return () => {} },
+  })
+  let sequence = 0
+  const send = (text: string, userId = 'u') => handler({ text, userId, conversationId: 'c', deliveryId: String(++sequence) })
+  const count = () => db.prepare('SELECT COUNT(*) AS n FROM "transaction"').get()?.n
+  try {
+    db.exec("INSERT INTO merchant (id,shop_no,name,brand) VALUES ('m','B1-1003','商户法人','作业帮')")
+    assert.match((await send('你好')).text, /你好/)
+    assert.match((await send('电费200')).text, /哪个商户/)
+    assert.equal(count(), 0)
+    assert.match((await send('作业帮')).text, /B1-1003/)
+    assert.equal(count(), 0)
+    assert.match((await send('确认 B1-1003', 'other')).text, /没有待确认/)
+    assert.match((await send('确认 BAD')).text, /草稿已保留/)
+    assert.equal(count(), 0)
+    fail = true
+    assert.match((await send('确认 B1-1003')).text, /temporary failure/)
+    fail = false
+    assert.match((await send('确认 B1-1003')).text, /已登记.*200.00/)
+    assert.equal(count(), 1)
+    assert.equal(db.prepare('SELECT amount FROM "transaction"').get()?.amount, 20000)
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM allocation').get()?.n, 1)
+    assert.match((await send('确认 B1-1003')).text, /没有待确认/)
+    assert.equal(count(), 1)
+    await send('作业帮')
+    await send('电费200')
+    await send('取消')
+    assert.match((await send('确认 B1-1003')).text, /没有待确认/)
+    assert.equal(count(), 1)
+    const image = await handler({ text: '电费200', imageUrl: 'downloadCode:x', userId: 'u', conversationId: 'c', deliveryId: 'image' })
+    assert.match(image.text, /图片识别尚未配置/)
+    assert.equal(count(), 1)
+  } finally { db.close() }
 })

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This library connects normalized DingTalk messages to Hongyang payment registration. Downloaded images can pass through the host attachment store and a configured vision route before the finance provider validates and records them. It exposes functions; installing it or setting environment variables does not start a robot listener.
+This package mounts a DingTalk Stream bridge when loaded by the host with credentials. Text payments use provider previews and an explicit merchant confirmation before registration. Image registration in this bridge remains deferred.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This library connects normalized DingTalk messages to Hongyang payment registrat
 <a id="use-this-package"></a>
 ## Use this package
 
-Call `createFinanceDingtalkBridge(service, stream, vision)` with the shared finance service, transport, and optional vision client. A downloaded image requires both vision and `service.registerPaymentFromImage`; otherwise the reply requests text and no image registration occurs. Successful replies include the merchant, fee name, and provider-formatted amount. Invalid evidence produces a failure reply.
+Text collection now uses read-only provider preview: send “电费200”, then a merchant name, then “确认 B1-1003”. The bridge keeps one draft per conversation/user for 30 minutes, shows database candidates, and commits only on an exact valid confirmation. Cancellation and expiry discard the draft without writing; failed confirmation keeps it for retry. Repeating confirmation after success does not write again. This is bounded text matching, not general LLM language understanding. Drafts are in memory and are lost on restart. Native interactive cards and durable delivery deduplication remain unfinished. Image extraction does not yet enter this draft flow and the bridge does not register images automatically.
 
 ### Prepare the robot in DingTalk
 
@@ -46,7 +46,7 @@ The official [robot creation guide](https://opensource.dingtalk.com/developerped
 <details>
 <summary>Implementation internals</summary>
 
-The [bridge](src/bridge.ts) invokes the shared finance service. The [LLM adapter](src/llm-vision.ts) retains the image as an attachment and accepts output only after an explicit successful terminal event. The [finance provider](../finance/src/provider/register/image.ts) validates the payee, positive amount, and payment time before writing; transaction numbers remain separate fields. Unrecognized merchants or fees remain pending. Text and image registration share the same database write path.
+The [bridge](src/bridge.ts) keeps bounded conversation drafts and calls read-only preview and validated confirmation on the finance service. Provider code owns amounts, fee labels, merchant lookup, and writes. Images do not bypass confirmation.
 
 </details>
 
@@ -76,7 +76,7 @@ Image attachments and hints vary with the receipt. No cache reuse is guaranteed 
 
 ## Known Limitations and Deferred Work
 
-- The package has no loadable Cordis plugin entry. Host mounting, agent sessions keyed by DingTalk user, durable message deduplication, and live robot acceptance remain integration work.
+- The Cordis entry mounts when the host loads it and credentials exist. Production image wiring, durable drafts/deduplication, native cards, and phone acceptance remain unfinished.
 - The web `finance_register` tool still supports text only; its image parameter is not connected to this bridge.
 - Screenshot registration does not merge platform transactions or split multiple fee amounts. These remain required before full HANDOFF step 6/7 acceptance.
 - Transport callback routing, download authorization, token refresh, and retry behavior require a separate protocol-level audit; downloader mock success is not proof of a real API connection.

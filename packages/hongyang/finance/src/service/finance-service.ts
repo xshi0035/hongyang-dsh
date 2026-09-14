@@ -1,3 +1,4 @@
+import { previewPayment, confirmPayment } from '../provider/register/conversation.ts'
 /**
  * Finance Service Definition and Provider in one class: `ctx.hyFinance`. Owns
  * the SQLite handle for the plugin's lifetime and exposes the domain
@@ -142,6 +143,8 @@ export class HyFinanceService extends Service {
   merchantBalance(query: string): MerchantBalance[] { return merchantBalance(this.db(), query) }
   overdue(days: number, today: string): OverdueRow[] { return overdue(this.db(), days, today) }
   todayReceipts(date: string): ReceiptToday[] { return todayReceipts(this.db(), date) }
+  previewPayment(text: string) { return previewPayment(this.db(), text) }
+  confirmPayment(text: string, shopNo: string) { return confirmPayment(this.db(), text, shopNo) }
   parsePayment(text: string) { return parsePaymentText(text) }
   registerPayment(text: string): RegisterResult { return registerPayment(this.db(), text) }
   /**

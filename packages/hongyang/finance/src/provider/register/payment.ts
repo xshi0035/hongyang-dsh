@@ -28,10 +28,20 @@ function dateOf(text: string): string {
   return [year ?? '', month?.padStart(2, '0') ?? '', day?.padStart(2, '0') ?? ''].join('-')
 }
 function amountOf(text: string): number {
-  const match = text.match(/(?:¥|￥)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:元|块)?/)
-    ?? text.match(/(?:金额|收款)[：:\s]*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/)
-  const amount = toCents(match?.[1] ?? '')
-  if (amount === undefined || amount <= 0) throw new Error('付款登记需要正数金额，例如“电费 500 元”')
+  // A shop number or date is never a payment amount. Require a currency unit
+  // or a fee/amount label immediately before a bare number.
+  const values = [...text.matchAll(/(?<![\d.\-])(?:¥|￥)?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:元|块)/gu)]
+    .map(match => match[1] ?? '')
+  if (values.length === 0) {
+    const labels = ['金额', '收款', ...FEE_TYPE_ALIASES.map(([alias]) => alias)].join('|')
+    const pattern = new RegExp(`(?:${labels})[：:\\s]*([0-9]+(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?)(?=$|[\\s，,。；;])`, 'gu')
+    values.push(...[...text.matchAll(pattern)].map(match => match[1] ?? ''))
+  }
+  if (values.length > 1) throw new Error('检测到多个金额，请取消当前草稿后按每笔付款分别发送')
+  const amount = toCents(values[0] ?? '')
+  if (amount === undefined || !Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error('付款登记需要正数金额，例如“电费 500 元”')
+  }
   return amount
 }
 function feeOf(text: string): FeeType | undefined {
@@ -48,6 +58,8 @@ function findMerchant(db: DatabaseSync, text: string): { id: MerchantId; shopNo:
   const needle = text.trim()
   if (needle === '') return undefined
   const merchants = listMerchants(db)
+  const exact = merchants.filter(m => m.shopNo === needle)
+  if (exact.length === 1) return exact[0]
   const found = merchants.find(m => needle.includes(m.shopNo) || needle.includes(m.name)
     || (m.brand.length > 1 && needle.includes(m.brand)))
   return found === undefined ? undefined : { id: found.id, shopNo: found.shopNo, name: found.name }

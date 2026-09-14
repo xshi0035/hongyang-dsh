@@ -2,74 +2,64 @@ import { registrationSummary, type HyFinanceService } from '@deepseek-ai/dsh-hy-
 import { extractPaymentFromImage, type PaymentVisionClient } from './vision.ts'
 import type { DingtalkReply, DingtalkStreamClient, DingtalkTextMessage } from './types.ts'
 
-type FinanceRegistrationService = Pick<HyFinanceService, 'registerPayment' | 'merchants' | 'parsePayment'>
+type FinanceRegistrationService = Pick<HyFinanceService, 'previewPayment' | 'confirmPayment'>
   & Partial<Pick<HyFinanceService, 'registerPaymentFromImage'>>
 
-/**
- * Register normalized text or downloaded images through the finance service.
- * @param service - shared finance service; image registration must be available with vision.
- * @param stream - transport carrying authenticated robot messages.
- * @param vision - configured extraction client; absence produces a configuration notice.
- * @returns the transport with its finance message handler installed.
- */
+/** Collect payment details without writing money until the user confirms a candidate. */
 export function createFinanceDingtalkBridge(
   service: FinanceRegistrationService,
   stream: DingtalkStreamClient,
   vision?: PaymentVisionClient,
 ): DingtalkStreamClient {
-  const pending = new Map<string, string>()
+  const pending = new Map<string, { text: string; expires: number }>()
   const handler = async (message: DingtalkTextMessage): Promise<DingtalkReply> => {
-    const key = `${message.conversationId}:${message.userId}`
-    const confirm = message.text.match(/^(?:确认|确定|选择)\s*([A-Za-z0-9_-]+)/u)
-    if (confirm !== null) {
-      const original = pending.get(key)
-      if (original === undefined) return { text: '当前没有待确认的付款，请先发送金额和费项。' }
+    const key = JSON.stringify([message.conversationId, message.userId])
+    const now = Date.now()
+    for (const [id, draft] of pending) if (draft.expires <= now) pending.delete(id)
+    const text = message.text.trim()
+    if (/^(取消|取消登记|重新开始)$/u.test(text)) {
       pending.delete(key)
+      return { text: '已取消草稿，本次没有登记流水。' }
+    }
+    const confirm = /^(?:确认|确定|选择)\s+(.+)$/u.exec(text)
+    if (confirm !== null) {
+      const draft = pending.get(key)
+      if (draft === undefined) return { text: '当前没有待确认的付款，或草稿已过期。请重新发送付款信息。' }
       try {
-        return { text: registrationSummary(service.registerPayment(`${original} 商户编号 ${confirm[1] ?? ''}`)) }
+        const result = service.confirmPayment(draft.text, confirm[1]?.trim() ?? '')
+        pending.delete(key)
+        return { text: registrationSummary(result) }
       } catch (error) {
-        return { text: '确认登记失败：' + (error instanceof Error ? error.message : '请重新发送') }
+        return { text: `确认未完成，草稿已保留：${error instanceof Error ? error.message : '请稍后再试'}` }
       }
     }
-    if (message.text.trim() === '' && message.imageUrl === undefined) {
-      return { text: '请补充付款金额和商户，例如“围辣转转火锅，电费500元”。' }
+    if (/^(你好|您好|帮助|怎么用)[！!。]?$/u.test(text)) {
+      return { text: '你好，可以告诉我“电费200”，再补充商户名称。我会查询编号让你确认，确认前不登记。' }
     }
     try {
       if (message.imageUrl !== undefined) {
-        if (!vision || service.registerPaymentFromImage === undefined || !message.imageUrl.startsWith('data:')) {
+        if (!vision || !message.imageUrl.startsWith('data:')) {
           return { text: '已收到付款截图，但图片识别尚未配置；请补充一句商户和费项文字。' }
         }
-        const extraction = await extractPaymentFromImage(vision, { imageDataUrl: message.imageUrl, textHint: message.text })
-        return { text: registrationSummary(service.registerPaymentFromImage(extraction)) }
+        // Image extraction remains a separate path until it can join a confirmation draft.
+        await extractPaymentFromImage(vision, { imageDataUrl: message.imageUrl, textHint: text })
+        return { text: '截图已识别，图片确认登记尚未接入。请先用文字说明金额、费项和商户，本次未登记。' }
       }
-      const parsed = service.parsePayment(message.text)
-      const needle = message.text.trim().toLowerCase()
-      const candidates = service.merchants().filter(m =>
-        needle.includes(m.shopNo.toLowerCase()) || needle.includes(m.name.toLowerCase())
-        || (m.brand.length > 1 && needle.includes(m.brand.toLowerCase())))
-      if (candidates.length !== 1) {
-        const choices = candidates.length === 0 ? '请补充商户名称或编号。' : candidates.map(m => `【${m.shopNo}】${m.name}${m.brand ? `（${m.brand}）` : ''}`).join('、')
-        pending.set(key, message.text)
-        return { text: `已识别：${parsed.feeType ?? '付款'} ${parsed.amount / 100} 元。需要确认商户：${choices} 回复“确认 编号”后再登记。` }
-      }
-      const result = service.registerPayment(message.text)
-      if (!result.booked) {
-        const needle = message.text.trim().toLowerCase()
-        const candidates = service.merchants().filter(m => needle === '' || `${m.shopNo} ${m.name} ${m.brand}`.toLowerCase().includes(needle) || needle.includes(m.shopNo.toLowerCase()) || needle.includes(m.name.toLowerCase())).slice(0, 5)
-        const choices = candidates.length === 0 ? '请补充商户名称或编号。' : candidates.map(m => `【${m.shopNo}】${m.name}${m.brand ? `（${m.brand}）` : ''}`).join('、')
-        pending.set(key, message.text)
-        return { text: `已识别金额和费项，但需要确认商户。候选：${choices} 回复“确认 编号”后再登记。` }
-      }
-      return { text: registrationSummary(result) }
+      const previous = pending.get(key)?.text
+      const combined = previous === undefined ? text : `${previous}\n${text}`
+      if (combined.length > 4000) return { text: '本次信息过长，请回复“取消”后按笔重新发送。' }
+      const preview = service.previewPayment(combined)
+      if (!pending.has(key) && pending.size >= 1000) return { text: '待确认草稿已满，请稍后再试。' }
+      pending.set(key, { text: combined, expires: now + 30 * 60 * 1000 })
+      const choices = preview.candidates.slice(0, 5).map(m => `【${m.shopNo}】${m.name} ${m.brand}`).join('\n')
+      const question = preview.candidates.length === 0
+        ? '这是哪个商户的付款？告诉我商户名称，我来查询编号。'
+        : preview.ready
+          ? '请核对商户和金额，回复“确认 编号”后登记。'
+          : '请补充金额或费项；之前的信息已保留。'
+      return { text: `付款待确认（尚未登记）\n${preview.summary}\n${choices}\n${question}\n可回复“取消”；草稿30分钟后过期。` }
     } catch (error) {
-      const reason = error instanceof Error ? error.message : ''
-      if (reason.includes('需要正数金额')) {
-        return { text: '我识别到这是一笔付款，但还没识别出金额。请用自然语言补充，例如“B1-1003 作业帮电费 200 元”。' }
-      }
-      if (reason.includes('需要正数金额') === false && /(?:电费|水费|租金|物业|经营服务费|停车)/u.test(message.text)) {
-        return { text: '我识别到费项，但还缺商户信息。请补充商户名称或编号，例如“B1-1003 作业帮”。收到后我会列出匹配商户供你确认。' }
-      }
-      return { text: '付款登记未完成：' + (reason || '请补充商户、费项和金额') }
+      return { text: `暂未登记，原草稿已保留：${error instanceof Error ? error.message : '请补充付款信息'}` }
     }
   }
   stream.onMessage(handler)
