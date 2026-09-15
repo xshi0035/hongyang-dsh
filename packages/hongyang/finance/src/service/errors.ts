@@ -16,6 +16,7 @@ export type FinanceErrorCode =
   | 'AMOUNT_MISMATCH'
   | 'SUBJECT_UNCONFIRMED'
   | 'INVALID_INPUT'
+  | 'DUPLICATE_PAYMENT'
 
 /** Error carrying a stable code and a human message. */
 export class FinanceError extends Error {

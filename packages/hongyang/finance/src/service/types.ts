@@ -6,7 +6,7 @@
 
 import type { FeeType, TaxRate } from '../rules/fee-types.ts'
 import type {
-  AllocationId, BatchId, MerchantId, PlatformTxnId, ReceivableId, TransactionId,
+  ActivityId, AllocationId, BatchId, MerchantId, PlatformTxnId, ReceivableId, TransactionId,
 } from './identifiers.ts'
 
 /** Which client file an import batch came from. */
@@ -147,6 +147,37 @@ export interface PayerMapping {
   readonly merchantId: MerchantId
   readonly confirmed: boolean
   readonly learnedAt: string
+}
+
+/** Who triggered a recorded operation: a browser session, a DingTalk user, an agent tool, or a batch job. */
+export interface ActivityActor {
+  readonly kind: 'web' | 'dingtalk' | 'tool' | 'import' | 'engine'
+  /** Session id, DingTalk user id, or tool name; empty when unknown. */
+  readonly id: string
+}
+
+/** Operations the workbench audit trail records. */
+export type ActivityAction =
+  | 'register_payment' | 'confirm_payment' | 'confirm_claim' | 'run_claims' | 'learn_payer'
+  | 'build_report' | 'correct_allocation' | 'withdraw_voucher'
+  | 'build_voucher' | 'import_file'
+  | 'submit_payment' | 'approve_payment' | 'reject_payment' | 'reverse_payment'
+
+/** One audit-trail row: what was done, by whom, to which record, for how much. */
+export interface ActivityEntry {
+  readonly id: ActivityId
+  /** ISO 8601 instant. */
+  readonly at: string
+  /** Local calendar day (`YYYY-MM-DD`) the workbench groups by. */
+  readonly day: string
+  readonly actor: ActivityActor
+  readonly action: ActivityAction
+  /** Record id, file name, or date the action addressed. */
+  readonly target: string
+  /** Integer cents when the action moved money. */
+  readonly amount: number | undefined
+  /** Short human-readable summary. */
+  readonly detail: string
 }
 
 /** Row counts the status tool and the settings card show. */

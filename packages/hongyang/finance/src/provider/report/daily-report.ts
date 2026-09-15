@@ -7,11 +7,12 @@
  * @module @deepseek-ai/dsh-hy-finance/provider/report/daily-report
  */
 
+import { receiptDate } from './receipt-date.ts'
 import type { DatabaseSync } from 'node:sqlite'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import ExcelJS from 'exceljs'
-import { FEE_RULES, FEE_TYPES, type FeeType } from '../../rules/fee-types.ts'
+import { FEE_RULES, FEE_TYPES, FEE_TYPE_BY_LABEL, type FeeType } from '../../rules/fee-types.ts'
 import { formatCents, toYuan } from '../../rules/tax.ts'
 import { newId, type ReportId } from '../../service/identifiers.ts'
 import { SOURCE_LABELS, type Source } from '../../service/types.ts'
@@ -19,6 +20,8 @@ import { canonicalShopNo } from '../import/receivable.ts'
 
 /** One report row; amounts in cents. */
 export interface ReportRow {
+  readonly receiptId: string
+  readonly cashAccount: 'bank' | 'pos'
   readonly seq: number
   readonly date: string
   readonly shopNo: string
@@ -85,6 +88,8 @@ interface AllocationJoin {
   period_end: string | null
   amount_incl_tax: number
   txn_source: string
+  txn_channel: string
+  ptx_platform: string | null
   txn_time: string
   payer_name: string
   remark: string
@@ -105,24 +110,25 @@ function sourceOf(a: AllocationJoin): Source {
 }
 
 /**
- * Build the report for one day from allocations whose money arrived that day.
+ * Read a report without saving it; explicit parking business dates take precedence over arrival dates.
  * @param db - open database.
  * @param date - ISO `YYYY-MM-DD`.
  * @returns the report; rows ordered by source then shop.
  */
-export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
+export function readDailyReport(db: DatabaseSync, date: string): DailyReport {
   const rows = db.prepare(`SELECT a.transaction_id, a.platform_txn_id, a.merchant_id, a.fee_type, a.period_start, a.period_end, a.amount_incl_tax,
-      t.source AS txn_source, t.txn_time, t.payer_name, t.remark,
+      t.source AS txn_source, t.channel AS txn_channel, p.platform AS ptx_platform, t.txn_time, t.payer_name, t.remark,
       p.txn_time AS ptx_time, p.merchant_account AS ptx_account, p.note AS ptx_note,
       m.shop_no, m.name AS merchant_name, m.brand
     FROM allocation a
     JOIN "transaction" t ON t.id = a.transaction_id
     LEFT JOIN platform_txn p ON p.id = a.platform_txn_id
     LEFT JOIN merchant m ON m.id = a.merchant_id
-    WHERE substr(COALESCE(p.txn_time, t.txn_time), 1, 10) = ?`).all(date) as unknown as AllocationJoin[]
+    `).all() as unknown as AllocationJoin[]
   // One row per receipt per merchant; WeChat parking orders collapse into one line per day.
   const groups = new Map<string, { a: AllocationJoin; source: Source; amounts: Map<FeeType, number>; starts: string[]; ends: string[] }>()
   for (const a of rows) {
+    if (receiptDate(a.ptx_time ?? a.txn_time, a.platform_txn_id === null ? a.txn_channel : '', a.remark).date !== date) continue
     const source = sourceOf(a)
     const receipt = source === 'wechat380' ? `wechat380:${date}` : (a.platform_txn_id ?? a.transaction_id)
     const key = `${receipt}|${a.merchant_id ?? ''}`
@@ -134,7 +140,7 @@ export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
     groups.set(key, g)
   }
   const built: ReportRow[] = []
-  for (const g of groups.values()) {
+  for (const [receiptId, g] of groups) {
     const amounts: Partial<Record<FeeType, number>> = {}
     let subtotal = 0
     for (const [fee, cents] of g.amounts) { amounts[fee] = cents; subtotal += cents }
@@ -143,10 +149,11 @@ export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
       ? `${g.a.payer_name}${g.a.remark ? ` ${g.a.remark}` : ''}`
       : (g.a.ptx_note ?? '').split('|').slice(1).join('|')
     built.push({
+      receiptId, cashAccount: g.a.ptx_platform === 'pos' || g.source === 'pos' ? 'pos' : 'bank',
       seq: 0, date, shopNo, merchantName: g.a.merchant_name ?? '', brand: g.a.brand ?? '', subtotal, source: g.source,
       periodStart: g.starts.length === 0 ? undefined : [...g.starts].sort()[0],
       periodEnd: g.ends.length === 0 ? undefined : [...g.ends].sort().at(-1),
-      amounts, remark: remark.trim(),
+      amounts, remark: [remark.trim(), ...(receiptDate(g.a.txn_time, g.a.txn_channel, g.a.remark).businessDay && g.a.platform_txn_id === null ? [`业务日归属，待财务复核；到账日 ${g.a.txn_time.slice(0, 10)}`] : [])].filter(Boolean).join('；'),
       key: `${shopKey(shopNo)}|${g.source}|${String(subtotal)}`,
     })
   }
@@ -166,8 +173,18 @@ export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
     bySource[r.source] = { count: s.count + 1, amount: s.amount + r.subtotal }
   })
   const report: DailyReport = { id: newId('rpt'), date, rows: built, totals, bySource, grandTotal }
+  return report
+}
+
+/** Build and persist a report using receipt business dates.
+ * @param db - Open database.
+ * @param date - Reporting day in ISO form.
+ * @returns Report snapshot with integer-cent totals.
+ */
+export function buildDailyReport(db: DatabaseSync, date: string): DailyReport {
+  const report = readDailyReport(db, date)
   db.prepare('INSERT INTO daily_report (id, date, built_at, rows_json) VALUES (?, ?, ?, ?)')
-    .run(report.id, date, new Date().toISOString(), JSON.stringify(built))
+    .run(report.id, date, new Date().toISOString(), JSON.stringify(report.rows))
   return report
 }
 
@@ -305,7 +322,10 @@ export function compareDailyReport(db: DatabaseSync, report: DailyReport, tolera
     const expected: Record<string, number> = {}
     for (const row of rows) {
       const amounts = JSON.parse(row.amounts) as Record<string, number>
-      for (const [fee, amount] of Object.entries(amounts)) expected[fee] = (expected[fee] ?? 0) + amount
+      for (const [fee, amount] of Object.entries(amounts)) {
+        const key = FEE_TYPE_BY_LABEL.get(fee) ?? fee
+        expected[key] = (expected[key] ?? 0) + amount
+      }
     }
     const actual: Readonly<Record<string, number | undefined>> = r.amounts
     const fees = new Set([...Object.keys(expected), ...Object.keys(actual)])
@@ -356,7 +376,7 @@ export function compareDailyReport(db: DatabaseSync, report: DailyReport, tolera
       near.used = true
       diffs.push({ kind: 'amount', shopNo: ri.r.shopNo, merchantName: ri.r.merchantName, source: SOURCE_LABELS[ri.r.source], reportAmount: ri.r.subtotal, ledgerAmount: near.l.subtotal, note: `金额差 ${formatCents(ri.r.subtotal - near.l.subtotal)}` })
     } else {
-      diffs.push({ kind: 'extra', shopNo: ri.r.shopNo, merchantName: ri.r.merchantName, source: SOURCE_LABELS[ri.r.source], reportAmount: ri.r.subtotal, ledgerAmount: undefined, note: '台账里没有这一行' })
+      diffs.push({ kind: 'extra', shopNo: ri.r.shopNo, merchantName: ri.r.merchantName, source: SOURCE_LABELS[ri.r.source], reportAmount: ri.r.subtotal, ledgerAmount: undefined, note: ri.r.remark.includes('业务日归属，待财务复核') ? '业务日归属，待财务复核；台账里没有这一行' : '台账里没有这一行' })
     }
   }
   for (const c of L.filter(x => !x.used)) {

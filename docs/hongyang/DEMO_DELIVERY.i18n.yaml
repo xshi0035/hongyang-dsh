@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/hongyang/DEMO_DELIVERY.md
-DEMO_DELIVERY.md: b1541098fea6c88630ecb43545aab33d577adcb2
-DEMO_DELIVERY.zh.md: b733fc655da1e7145740b7c4c8fb93110e5304a4
+DEMO_DELIVERY.md: 1e5d17ea88cfefdbd8cd182014f72d5c2a9b157f
+DEMO_DELIVERY.zh.md: 1606cfb041027a053fa553e7d64e89835a91b98c

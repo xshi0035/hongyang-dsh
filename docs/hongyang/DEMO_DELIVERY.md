@@ -69,7 +69,7 @@ Add the extracted `sample` as a workspace in the browser. Old sessions retain or
 | Vouchers | Generation available, final acceptance pending | Persistent reference has 9 rows; latest generated voucher has 35 balanced rows, 6 matches, 32 differences, and 3 unresolved subject rows; difference causes are not fully classified |
 | Account rules | Some client confirmations recorded | Rent 2203.01.01, service 2203.01.02, electricity advances 2203.30, water advances 2203.31; 13%/3% output VAT 2221.01.02.13 / 2221.01.02.03; parking and other subaccounts still need verification |
 | Payment registration | Text implemented | Image provider validates payee, amount, and date; Web image parameters and robot vision client are not wired into the actual startup entry |
-| DingTalk | Stream connection verified | Phone reply acceptance pending; user sessions, durable deduplication, platform transaction merging, and multiple-fee splitting remain; memory deduplication does not prevent duplicate posting after restart |
+| DingTalk | Stream connection verified | Drafts, delivery deduplication, and card instances persist in dingtalk.db, so restarts do not post twice; interactive card delivery and button callbacks are wired but phone acceptance is pending; platform transaction merging and multiple-fee splitting remain |
 
 Financial providers must perform all monetary calculations; the model selects tools and explains results. Passing tests does not establish customer voucher acceptance; do not edit the source reference to eliminate differences.
 

@@ -24,6 +24,10 @@ export type AllocationId = Branded<'AllocationId'>
 export type ReportId = Branded<'ReportId'>
 /** Row id of `voucher`. */
 export type VoucherId = Branded<'VoucherId'>
+/** Row id of `activity_log`. */
+export type ActivityId = Branded<'ActivityId'>
+/** Row id of `payment_submission`. */
+export type PaymentSubmissionId = Branded<'PaymentSubmissionId'>
 
 interface IdentifierByPrefix {
   batch: BatchId
@@ -34,6 +38,8 @@ interface IdentifierByPrefix {
   alc: AllocationId
   rpt: ReportId
   vcr: VoucherId
+  sub: PaymentSubmissionId
+  act: ActivityId
   ldg: Branded<'LedgerRowId'>
 }
 

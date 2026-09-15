@@ -15,13 +15,15 @@ import type { ImportBatch, ImportKind, Merchant, PlatformTxn, Transaction } from
  * @returns The operation result after commit.
  */
 export function transaction<T>(db: DatabaseSync, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE')
+  const nested = db.isTransaction
+  db.exec(nested ? 'SAVEPOINT hy_finance_write' : 'BEGIN IMMEDIATE')
   try {
     const result = fn()
-    db.exec('COMMIT')
+    db.exec(nested ? 'RELEASE hy_finance_write' : 'COMMIT')
     return result
   } catch (error) {
-    db.exec('ROLLBACK')
+    db.exec(nested ? 'ROLLBACK TO hy_finance_write' : 'ROLLBACK')
+    if (nested) db.exec('RELEASE hy_finance_write')
     throw error
   }
 }

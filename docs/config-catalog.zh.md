@@ -976,6 +976,24 @@ export interface Config {
 
 来源：[`packages/host/webserver/src/index.ts:59`](../packages/host/webserver/src/index.ts)
 
+<a id="deepseek-aidsh-hy-dingtalk"></a>
+
+## `@deepseek-ai/dsh-hy-dingtalk`
+
+需要： `hyFinance`
+
+```ts config-catalog
+/** Explicit image route; empty fields use the corresponding deployment environment values. */
+export interface Config {
+  /** Registered image-capable provider; empty reads DINGTALK_VISION_PROVIDER. */
+  visionProvider: string
+  /** Image-capable model on the selected provider; empty reads DINGTALK_VISION_MODEL. */
+  visionModel: string
+}
+```
+
+来源： [`packages/hongyang/dingtalk/src/index.ts:17`](../packages/hongyang/dingtalk/src/index.ts)
+
 <a id="deepseek-aidsh-hy-finance"></a>
 
 ## `@deepseek-ai/dsh-hy-finance`
@@ -998,7 +1016,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/hongyang/finance/src/config.ts:16`](../packages/hongyang/finance/src/config.ts)
+来源：[`packages/hongyang/finance/src/config.ts:17`](../packages/hongyang/finance/src/config.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 
@@ -3531,7 +3549,6 @@ export interface Config {
 - `@deepseek-ai/dsh-host-directory-picker-auto` — 需要 `webServer` · `loader`（[`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts)）
 - `@deepseek-ai/dsh-host-directory-picker-native`（[`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts)）
 - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
-- `@deepseek-ai/dsh-hy-dingtalk` — 需要 `hyFinance`（[`packages/hongyang/dingtalk/src/index.ts`](../packages/hongyang/dingtalk/src/index.ts)）
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
 - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）

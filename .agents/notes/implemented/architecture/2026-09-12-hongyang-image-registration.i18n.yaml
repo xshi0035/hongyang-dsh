@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-12-hongyang-image-registration.md
-2026-09-12-hongyang-image-registration.md: ed590d5fa081fd9f40b01f208cbede3c8bbb22bb
-2026-09-12-hongyang-image-registration.zh.md: 37427e9484b1dcadd63b1d3b64ddd9ca8cf59a30
+2026-09-12-hongyang-image-registration.md: dae4a0daa5bf59b6e149634d3b68a7c0f37f17cd
+2026-09-12-hongyang-image-registration.zh.md: 148de67460142484725e9fef6b8ded20f0fc76cb

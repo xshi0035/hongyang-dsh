@@ -12,7 +12,7 @@ import type { VoucherBuild } from './build.ts'
  */
 export async function exportVoucher(voucher: VoucherBuild, dir: string): Promise<string> {
   await mkdir(dir, { recursive: true })
-  const file = join(dir, `凭证_${voucher.date}.xlsx`)
+  const file = join(dir, `凭证_${voucher.date}_${voucher.id}.xlsx`)
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('凭证', { views: [{ state: 'frozen', ySplit: 1 }] })
   ws.addRow([
@@ -23,7 +23,7 @@ export async function exportVoucher(voucher: VoucherBuild, dir: string): Promise
     ws.addRow([
       line.date, line.date.slice(0, 4), Number(line.date.slice(5, 7)), '记', line.voucherNo,
       line.summary, line.subject, line.subjectName, '人民币', toYuan(line.debit || line.credit),
-      toYuan(line.debit), toYuan(line.credit), '', '', '', '', 0, '弘阳财务', '收款', line.warning ? '草稿' : '', '',
+      toYuan(line.debit), toYuan(line.credit), '', '', '', '', 0, '弘阳财务', '收款', '草稿', '',
     ])
   }
   ws.getRow(1).font = { bold: true }

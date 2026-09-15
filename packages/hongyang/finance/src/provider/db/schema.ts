@@ -2,8 +2,8 @@
  * SQLite schema and open sequence for the finance database. Mirrors the
  * repository's `storage-sqlite` open sequence (owner-only file, WAL, foreign
  * keys, `PRAGMA user_version` stamped last) because each package owns its
- * own database identity. Authoritative business data: a foreign version
- * rejects rather than migrating.
+ * own database identity. Unknown versions reject; known adjacent versions
+ * migrate transactionally while preserving existing financial records.
  * @module @deepseek-ai/dsh-hy-finance/provider/db/schema
  */
 
@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path'
 import { FinanceError } from '../../service/errors.ts'
 
 /** Physical layout version stored in `PRAGMA user_version`. */
-export const HY_FINANCE_SCHEMA_VERSION = 2
+export const HY_FINANCE_SCHEMA_VERSION = 5
 
 /** `PRAGMA application_id` marking a file as this package's database. */
 const APPLICATION_ID = 0x48594649 // "HYFI"
@@ -51,24 +51,81 @@ export async function openFinanceDatabase(path: string): Promise<DatabaseSync> {
 
 function configure(db: DatabaseSync, path: string): void {
   db.exec('PRAGMA foreign_keys = ON')
+  db.exec('PRAGMA busy_timeout = 5000')
   db.exec('PRAGMA journal_mode = WAL')
   const { application_id: appId } = db.prepare('PRAGMA application_id').get() as { application_id: number }
   const { user_version: version } = db.prepare('PRAGMA user_version').get() as { user_version: number }
-  if (version !== 0 && (version !== HY_FINANCE_SCHEMA_VERSION || appId !== APPLICATION_ID)) {
+  if (version !== 0 && (![2, 3, 4, HY_FINANCE_SCHEMA_VERSION].includes(version) || appId !== APPLICATION_ID)) {
     throw new FinanceError(
       'DB_VERSION_MISMATCH',
       `finance database at "${path}" has schema version ${String(version)} (app ${String(appId)}), this build expects ${String(HY_FINANCE_SCHEMA_VERSION)}`,
     )
   }
-  db.exec(SCHEMA)
-  if (version === 0) {
-    db.exec(`PRAGMA application_id = ${String(APPLICATION_ID)}`)
-    db.exec(`PRAGMA user_version = ${String(HY_FINANCE_SCHEMA_VERSION)}`)
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    db.exec(SCHEMA)
+    if (version !== HY_FINANCE_SCHEMA_VERSION) {
+      db.exec(`PRAGMA application_id = ${String(APPLICATION_ID)}`)
+      db.exec(`PRAGMA user_version = ${String(HY_FINANCE_SCHEMA_VERSION)}`)
+    }
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
   }
 }
 
 /** Table layout. Amounts are integer cents; dates ISO text. */
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS payment_review_allocation (
+  submission_id TEXT PRIMARY KEY REFERENCES payment_submission(id),
+  review_json TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS payment_reversal (
+  original_id TEXT PRIMARY KEY REFERENCES "transaction"(id),
+  reversal_id TEXT NOT NULL UNIQUE REFERENCES "transaction"(id),
+  request_json TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  effective_date TEXT NOT NULL,
+  created_at TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS voucher_void (
+  voucher_id TEXT PRIMARY KEY REFERENCES voucher(id),
+  reason TEXT NOT NULL,
+  at TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS voucher_receipt (
+  receipt_id TEXT PRIMARY KEY,
+  voucher_id TEXT NOT NULL REFERENCES voucher(id),
+  date TEXT NOT NULL,
+  fingerprint TEXT NOT NULL
+) STRICT;
+CREATE TABLE IF NOT EXISTS allocation_revision (
+  request_id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  request_json TEXT NOT NULL,
+  before_json TEXT NOT NULL,
+  after_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS payment_submission (
+  id TEXT PRIMARY KEY,
+  draft_id TEXT NOT NULL UNIQUE,
+  submitted_at TEXT NOT NULL,
+  submitter TEXT NOT NULL,
+  shop_no TEXT NOT NULL,
+  merchant_name TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  text TEXT NOT NULL,
+  image TEXT,
+  payment_date TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
+  decided_at TEXT,
+  transaction_id TEXT REFERENCES "transaction"(id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS payment_submission_pending ON payment_submission(status, submitted_at);
+
 CREATE TABLE IF NOT EXISTS import_batch (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -219,4 +276,17 @@ CREATE TABLE IF NOT EXISTS voucher (
   checks_json TEXT NOT NULL,
   xlsx_path TEXT
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT PRIMARY KEY,
+  at TEXT NOT NULL,
+  day TEXT NOT NULL,
+  actor_kind TEXT NOT NULL,
+  actor TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL,
+  target TEXT NOT NULL DEFAULT '',
+  amount INTEGER,
+  detail TEXT NOT NULL DEFAULT ''
+) STRICT;
+CREATE INDEX IF NOT EXISTS activity_log_day ON activity_log(day, at);
 `

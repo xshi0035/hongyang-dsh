@@ -17,7 +17,8 @@
   "files": [
     "lib/index.js",
     "lib/types/**/*.d.ts",
-    "README.md"
+    "README.md",
+    "cordis.patch.yml"
   ],
   "license": "UNLICENSED",
   "scripts": {
@@ -25,7 +26,8 @@
     "watch": "tsdown --watch"
   },
   "dependencies": {
-    "dingtalk-stream": "2.1.6-beta.1"
+    "dingtalk-stream": "2.1.6-beta.1",
+    "@deepseek-ai/schemastery": "workspace:^"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
@@ -37,7 +39,10 @@
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-attachment": "workspace:^",
     "@deepseek-ai/dsh-hy-finance": "workspace:^",
-    "@deepseek-ai/dsh-llm": "workspace:^"
+    "@deepseek-ai/dsh-llm": "workspace:^",
+    "@deepseek-ai/cordis-plugin-include": "workspace:^",
+    "@deepseek-ai/cordis-plugin-loader": "workspace:^",
+    "@deepseek-ai/dsh-attachment-local": "workspace:^"
   },
   "dsh": {
     "bundle": {

@@ -1,0 +1,57 @@
+{
+  "lines": [
+    {
+      "subject": "1002.02",
+      "debit": 21500,
+      "credit": 0
+    },
+    {
+      "subject": "2203.01.01",
+      "debit": 0,
+      "credit": 10900
+    },
+    {
+      "subject": "2203.01.01",
+      "debit": 900,
+      "credit": 0
+    },
+    {
+      "subject": "2221.01.02.09",
+      "debit": 0,
+      "credit": 900
+    },
+    {
+      "subject": "2203.01.02",
+      "debit": 0,
+      "credit": 10600
+    },
+    {
+      "subject": "2203.01.02",
+      "debit": 600,
+      "credit": 0
+    },
+    {
+      "subject": "2221.01.02.06",
+      "debit": 0,
+      "credit": 600
+    },
+    {
+      "subject": "1012.08",
+      "debit": 154700,
+      "credit": 0
+    },
+    {
+      "subject": "2241.12",
+      "debit": 0,
+      "credit": 154700
+    }
+  ],
+  "coverage": {
+    "totalCount": 3,
+    "totalAmount": 186200,
+    "selectedCount": 2,
+    "selectedAmount": 176200,
+    "remainingCount": 1,
+    "remainingAmount": 10000
+  }
+}

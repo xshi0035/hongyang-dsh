@@ -108,6 +108,15 @@ export interface ReportMetaWire {
  */
 export interface VoucherMetaWire {
   readonly card: 'hy-finance/voucher'
+  readonly coverage?: {
+    totalCount: number
+    totalAmount: string
+    selectedCount: number
+    selectedAmount: string
+    remainingCount: number
+    remainingAmount: string
+  }
+  readonly receiptIds?: readonly string[]
   readonly voucherId: string
   readonly date: string
   readonly lines: number
@@ -153,6 +162,77 @@ export interface MerchantWire {
   readonly shopNo: string
   readonly name: string
   readonly brand: string
+}
+
+/** One row of the workbench audit trail. Amounts are yuan strings. */
+export interface ActivityWire {
+  readonly id: string
+  readonly at: string
+  readonly actorKind: 'web' | 'dingtalk' | 'tool' | 'import' | 'engine'
+  readonly actor: string
+  readonly action: string
+  readonly target: string
+  readonly amount?: string | undefined
+  readonly detail: string
+}
+
+/** Response of `GET /api/hy-finance/workbench?date=YYYY-MM-DD`. Amounts are yuan strings. */
+export interface WorkbenchWire {
+  readonly voucherQueue: {
+    readonly allocatedAmount: string
+    readonly draftedCount: number
+    readonly draftedAmount: string
+    readonly pendingCount: number
+    readonly pendingAmount: string
+    readonly unclaimedCount: number
+    readonly unclaimedAmount: string
+    readonly receipts: readonly {
+      receiptId: string
+      shopNo: string
+      merchantName: string
+      source: string
+      amount: string
+      fees: string
+      remark: string
+      voucherId: string | undefined
+    }[]
+  }
+  readonly pendingReviews: readonly {
+    readonly id: string
+    readonly submittedAt: string
+    readonly shopNo: string
+    readonly merchantName: string
+    readonly summary: string
+    readonly text: string
+    readonly paymentDate: string
+    readonly transactionNo: string
+    readonly duplicateMessage: string | undefined
+  }[]
+  readonly date: string
+  readonly receipts: readonly { source: string; count: number; amount: string }[]
+  readonly registrations: readonly {
+    at: string
+    source: string
+    shopNo: string
+    merchantName: string
+    fee: string
+    amount: string
+    origin: string
+    status: string
+    transactionId: string
+  }[]
+  readonly registrationTotal: { count: number; amount: string }
+  readonly todos: {
+    pendingClaims: number
+    pendingClaimsAmount: string
+    unlabelledPos: number
+    overdueMerchants: number
+    overdueAmount: string
+    reportBuilt: boolean
+    voucherBuilt: boolean
+    extra: readonly { id: string; label: string; count: number }[]
+  }
+  readonly activity: readonly ActivityWire[]
 }
 
 /** Path prefix of the card routes on the shared API channel. */

@@ -10,14 +10,20 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-ui-tool/client'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { FinanceSettingsCard } from './FinanceSettingsCard.tsx'
 import type { ClaimsCardFace } from './PendingClaimsCard.tsx'
 import type { ReportCardFace } from './DailyReportCard.tsx'
 import { ClaimToolView, ReportToolView, VoucherToolView } from './FinanceToolViews.tsx'
 import {
-  claimsEn, claimsZh, CLAIMS_NS, en, NS, reportEn, reportZh, REPORT_NS, zh,
-  type ClaimsCardKey, type FinanceSettingsKey, type ReportCardKey,
+  claimsEn, claimsZh, CLAIMS_NS, en, NS, reportEn, reportZh, REPORT_NS, workbenchEn, workbenchZh, WORKBENCH_NS, zh,
+  type ClaimsCardKey, type FinanceSettingsKey, type ReportCardKey, type WorkbenchKey,
 } from './locales.ts'
+import { fetchWorkbench, reviewPayment, WorkbenchController, type WorkbenchFace } from './workbench.ts'
+import { WorkbenchIcon, WorkbenchPanel } from './WorkbenchPanel.tsx'
 import { HY_FINANCE_API, type ConfirmResponseWire, type MerchantWire } from '../shared/wire.ts'
 import { FinanceCardController, HY_FINANCE_NS, type FinanceCardFace, type FinanceSettings } from './settings-card.ts'
 
@@ -29,14 +35,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'hyFinance.claims': ClaimsCardKey
     /** Daily-report card copy. */
     'hyFinance.report': ReportCardKey
+    /** Workbench panel copy. */
+    'hyFinance.workbench': WorkbenchKey
   }
 }
+
+/** Main-panel key and sidebar entry id of the workbench; both registrations share it. */
+export const WORKBENCH_PANEL_ID = 'hy-finance-workbench'
 
 export type { FinanceCardFace, FinanceCardState, FinanceSettings } from './settings-card.ts'
 export type { FinanceSettingsKey } from './locales.ts'
 
 /** Required services. */
-export const inject = ['slots', 'locale', 'settingsScope']
+export const inject = ['slots', 'locale', 'settingsScope', 'sessions', 'layout']
 
 /**
  * Register dictionaries and the settings card.
@@ -85,4 +96,28 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview', key: 'finance_voucher', locale: REPORT_NS, inject: () => ({}),
   }, VoucherToolView))
+
+  // Workbench: a global main panel plus its sidebar entry. Quick actions hand a
+  // prompt to the current session's agent and switch back to the conversation.
+  ctx.effect(() => ctx.locale.register(WORKBENCH_NS, { zh: workbenchZh, en: workbenchEn }), 'hy-finance: workbench dictionaries')
+  const workbench = new WorkbenchController({
+    review: reviewPayment,
+    load: fetchWorkbench,
+    send: async (text) => {
+      const current = ctx.sessions.list.getSnapshot().current
+      if (current === undefined) return false
+      const conversation = ctx.sessions.scope(current)?.get('conversation')
+      if (conversation === undefined) return false
+      await conversation.send(text)
+      ctx.layout.selectPanel(null)
+      return true
+    },
+  })
+  const workbenchT = ctx.locale.bind(WORKBENCH_NS)
+  ctx.slots.inject('main', () => ctx.slots.register({
+    name: 'main', key: WORKBENCH_PANEL_ID, locale: WORKBENCH_NS, inject: (): WorkbenchFace => workbench.inject(),
+  }, WorkbenchPanel))
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: WORKBENCH_PANEL_ID, order: 30, label: () => workbenchT('nav'),
+  }, WorkbenchIcon))
 }

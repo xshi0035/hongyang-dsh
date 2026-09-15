@@ -23,6 +23,7 @@ The service returns the following typed results. Their declarations remain besid
 | `VoucherBuild` | [Voucher drafts](../../packages/hongyang/finance/src/provider/voucher/build.ts) |
 | `ReceivableSummary`, `MerchantBalance`, `OverdueRow`, `ReceiptToday` | [Dashboard queries](../../packages/hongyang/finance/src/provider/query/dashboard.ts) |
 | `ParsedPayment`, `RegisterResult` | [Payment registration](../../packages/hongyang/finance/src/provider/register/payment.ts) |
+| `PaymentSubmissionInput`, `PaymentSubmission` | [Payment review queue](../../packages/hongyang/finance/src/provider/register/submission.ts) |
 | `PaymentPreview` | [Conversation preview](../../packages/hongyang/finance/src/provider/register/conversation.ts) |
 | `PaymentImageExtraction` | [Image evidence](../../packages/hongyang/finance/src/provider/register/image.ts) |
 
@@ -69,9 +70,10 @@ reconfigure(config: HyFinanceConfig): void
  * settlement splitting.
  * @param file - absolute path.
  * @param kind - explicit kind, or detected from the headers.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns the import outcome.
  */
-importFile(file: string, kind?: ImportKind): Promise<ImportOutcome>
+async importFile(file: string, kind?: ImportKind, actor: ActivityActor = TOOL_ACTOR): Promise<ImportOutcome>
 
 /**
  * Re-run settlement splitting over every pending Tenpay / UnionPay credit.
@@ -81,9 +83,10 @@ splitSettlements(): SplitResult
 
 /**
  * Run the claim engine over everything unbooked.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns Automatic bookings and the remaining review queue.
  */
-runClaims(): ClaimRunResult
+runClaims(actor: ActivityActor = TOOL_ACTOR): ClaimRunResult
 
 /**
  * The pending queue with suggestions.
@@ -97,24 +100,27 @@ listPending(): { pending: PendingItem[]; unlabelledPos: UnlabelledPos[] }
  * @param shopNo - shop number; empty books suspense.
  * @param splits - explicit splits in cents.
  * @param origin - who confirmed.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns Booked allocations and payer-mapping status.
  */
-confirmClaim(itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin): ConfirmResult
+confirmClaim( itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin, actor: ActivityActor = TOOL_ACTOR, ): ConfirmResult
 
 /**
  * Remember a payer → shop mapping.
  * @param payerName - Payer name matched exactly.
  * @param shopNo - Selected shop number.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns The merchant associated with the stored mapping.
  */
-learnPayer(payerName: string, shopNo: string): Merchant
+learnPayer(payerName: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): Merchant
 
 /**
  * Build one day's income report from allocations.
  * @param date - Receipt date in YYYY-MM-DD form.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns Daily report rows and integer-cent totals.
  */
-buildDailyReport(date: string): DailyReport
+buildDailyReport(date: string, actor: ActivityActor = TOOL_ACTOR): DailyReport
 
 /**
  * Write a built report as xlsx into `dir`.
@@ -134,9 +140,17 @@ compareDailyReport(report: DailyReport): CompareResult
 /**
  * Build a voucher proposal without saving a formal voucher.
  * @param date - Receipt date in YYYY-MM-DD form.
+ * @param actor - Who performed the operation; recorded in the audit trail.
+ * @param receiptIds - Explicit selection to save as a durable draft; omitted for full-day diagnostics.
  * @returns Proposed voucher lines and validation findings.
  */
-buildVoucher(date: string): VoucherBuild
+buildVoucher(date: string, actor: ActivityActor = TOOL_ACTOR, receiptIds?: readonly string[]): VoucherBuild
+
+/** Read full-day voucher coverage and unselected receipts.
+ * @param date - Reporting day.
+ * @returns Allocated, drafted and unclaimed coverage.
+ */
+voucherQueue(date: string): VoucherQueue
 
 /**
  * Aggregate positive open receivables after relief and linked allocations.
@@ -177,9 +191,10 @@ previewPayment(text: string): PaymentPreview
  * Validate an offered merchant and register the draft payment.
  * @param text - User payment text or accumulated conversation draft.
  * @param shopNo - Selected shop number.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns Saved receipt and allocation status; invalid selection throws.
  */
-confirmPayment(text: string, shopNo: string): RegisterResult
+confirmPayment(text: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult
 
 /**
  * Extract payment fields without writing financial rows.
@@ -191,16 +206,63 @@ parsePayment(text: string): ParsedPayment
 /**
  * Parse and save a payment, allocating when merchant and fee resolve.
  * @param text - User payment text or accumulated conversation draft.
+ * @param actor - Who performed the operation; recorded in the audit trail.
  * @returns Saved receipt and allocation status.
  */
-registerPayment(text: string): RegisterResult
+registerPayment(text: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult
 
 /**
- * Validate screenshot fields and register through the shared provider.
- * @param extraction - untrusted vision extraction, validated again before writes.
- * @returns committed receipt or pending allocation; invalid evidence throws without writing.
+ * Preview validated screenshot fields without writing a payment.
+ * @param extraction - Untrusted screenshot fields.
+ * @param text - Accumulated user hints.
+ * @returns Candidate amount, merchants and readiness for confirmation.
  */
-registerPaymentFromImage(extraction: PaymentImageExtraction): RegisterResult
+previewPaymentImage(extraction: PaymentImageExtraction, text: string): PaymentPreview
+
+/**
+ * Revalidate screenshot evidence and commit a user-selected shop.
+ * @param extraction - Original screenshot fields.
+ * @param text - Accumulated user hints.
+ * @param shopNo - Exact candidate selected by the user.
+ * @param actor - Operator recorded in the audit trail.
+ * @returns Committed registration; invalid drafts throw without writing.
+ */
+confirmPaymentImage(extraction: PaymentImageExtraction, text: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult
+
+/**
+ * Validate and register screenshot evidence directly.
+ * @param extraction - Untrusted screenshot fields.
+ * @param actor - Operator recorded in the audit trail.
+ * @returns Saved receipt or pending allocation.
+ */
+registerPaymentFromImage(extraction: PaymentImageExtraction, actor: ActivityActor = TOOL_ACTOR): RegisterResult
+
+/** Submit a DingTalk draft for workbench review without booking money.
+ * @param input - Stable draft id, selected shop, and original evidence.
+ * @returns Durable submission awaiting a workbench decision.
+ */
+submitPayment(input: PaymentSubmissionInput): PaymentSubmission
+
+/**
+ * Contribute a to-do counter to the workbench, for example drafts another transport holds.
+ * @param provider - Stable id, label, and a counter read on every workbench request.
+ * @returns Disposer removing the counter.
+ */
+registerTodoProvider(provider: WorkbenchTodoProvider): () => void
+
+/**
+ * The audit trail of one local day, newest first.
+ * @param day - `YYYY-MM-DD`; defaults to today in the finance time zone.
+ * @returns Recorded operations.
+ */
+activity(day: string = localDay()): ActivityEntry[]
+
+/**
+ * Everything the workbench page shows for one local day.
+ * @param date - `YYYY-MM-DD`; defaults to today in the finance time zone.
+ * @returns Receipts, registrations, to-dos, and the audit trail.
+ */
+workbench(date: string = localDay()): WorkbenchSummary
 
 /**
  * Every merchant, for pickers.

@@ -182,6 +182,14 @@ export function runClaims(db: DatabaseSync): ClaimRunResult {
     for (const p of unbookedDetails(db, 'pos')) {
       const remark = p.note.split('|').slice(1).join('|')
       if (remark.trim() === '') continue
+      const fees = feeTypesFromText(remark)
+      if (fees.length === 1 && fees[0] === 'parking') {
+        const rows = allocate(db, { transactionId: p.transaction_id as TransactionId, platformTxnId: p.id as PlatformTxnId,
+          merchantId: undefined, amount: p.amount, wholeFee: 'parking', origin: 'engine' })
+        posAuto++
+        autoBooked.push({ itemId: `ptx:${p.id}`, payerName: `POS ${remark}`, amount: p.amount, shopNo: '', name: '停车费/充值', booked: describeAllocations(rows), confidence: 1 })
+        continue
+      }
       const ranked = suggest(db, index, { payerName: '', payerAccount: '', remark, amount: p.amount, date: p.txn_time.slice(0, 10) })
       const top = ranked[0]
       if (top === undefined || top.confidence < AUTO_THRESHOLD) continue

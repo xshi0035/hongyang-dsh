@@ -3,7 +3,7 @@ import { FEE_RULES, FEE_TYPE_ALIASES, type FeeType } from '../../rules/fee-types
 import { formatCents, toCents } from '../../rules/tax.ts'
 import { newId, type MerchantId, type TransactionId } from '../../service/identifiers.ts'
 import { listMerchants, transaction } from '../db/repo.ts'
-import { allocate } from '../claim/allocate.ts'
+import { allocate, type Split } from '../claim/allocate.ts'
 
 /**
  * Parsed payment fields; amount is integer cents and fee may need clarification.
@@ -98,16 +98,20 @@ export function registerPayment(db: DatabaseSync, text: string): RegisterResult 
  * @param db - finance database owned by the service.
  * @param parsed - provider-validated payment fields.
  * @param evidence - original text or structured extraction for review.
+ * @param splits - Validated human fee allocation; omitted uses the parsed fee.
  * @returns saved receipt and allocation status.
  */
-export function registerParsedPayment(db: DatabaseSync, parsed: ParsedPayment, evidence: string): RegisterResult {
+export function registerParsedPayment(
+  db: DatabaseSync, parsed: ParsedPayment, evidence: string, splits?: readonly Split[],
+): RegisterResult {
   return transaction(db, () => {
     const merchant = findMerchant(db, parsed.merchant)
     const id = newId('txn')
     db.prepare('INSERT INTO "transaction" (id,source,channel,txn_time,amount,payer_name,remark,txn_no,status,confidence,raw) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
       .run(id, 'dingtalk', 'transfer', parsed.date, parsed.amount, parsed.merchant, evidence, parsed.txnNo, 'pending', merchant === undefined ? 0 : 0.9, evidence)
     if (merchant !== undefined && parsed.feeType !== undefined) {
-      allocate(db, { transactionId: id, merchantId: merchant.id, amount: parsed.amount, splits: [{ feeType: parsed.feeType, amount: parsed.amount }], origin: 'dingtalk' })
+      allocate(db, { transactionId: id, merchantId: merchant.id, amount: parsed.amount,
+        splits: splits ?? [{ feeType: parsed.feeType, amount: parsed.amount }], origin: 'dingtalk' })
       db.prepare('UPDATE "transaction" SET status=?,merchant_id=? WHERE id=?').run('manual', merchant.id, id)
     }
     return {

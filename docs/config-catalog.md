@@ -974,6 +974,24 @@ export interface Config {
 
 Source: [`packages/host/webserver/src/index.ts:59`](../packages/host/webserver/src/index.ts)
 
+<a id="deepseek-aidsh-hy-dingtalk"></a>
+
+## `@deepseek-ai/dsh-hy-dingtalk`
+
+Requires: `hyFinance`
+
+```ts config-catalog
+/** Explicit image route; empty fields use the corresponding deployment environment values. */
+export interface Config {
+  /** Registered image-capable provider; empty reads DINGTALK_VISION_PROVIDER. */
+  visionProvider: string
+  /** Image-capable model on the selected provider; empty reads DINGTALK_VISION_MODEL. */
+  visionModel: string
+}
+```
+
+Source: [`packages/hongyang/dingtalk/src/index.ts:17`](../packages/hongyang/dingtalk/src/index.ts)
+
 <a id="deepseek-aidsh-hy-finance"></a>
 
 ## `@deepseek-ai/dsh-hy-finance`
@@ -996,7 +1014,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/hongyang/finance/src/config.ts:16`](../packages/hongyang/finance/src/config.ts)
+Source: [`packages/hongyang/finance/src/config.ts:17`](../packages/hongyang/finance/src/config.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 
@@ -3529,7 +3547,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
-- `@deepseek-ai/dsh-hy-dingtalk` — requires `hyFinance` ([`packages/hongyang/dingtalk/src/index.ts`](../packages/hongyang/dingtalk/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))

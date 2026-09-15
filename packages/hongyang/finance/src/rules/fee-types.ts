@@ -1,6 +1,6 @@
 /**
- * Fee-type vocabulary of the client's daily income report. The 22 amount
- * columns of `收入日报表格式.xlsx` (row 3, columns J..AE) define both the order
+ * Fee-type vocabulary of the client's daily income report. Its amount
+ * columns of the income report, including the confirmed UONE collection column, define the order
  * and the Chinese labels; tax rates and prepaid-revenue ledger accounts come
  * from the client's Kingdee vouchers. Codes marked `null` are still
  * unconfirmed with the client and must be supplied through configuration
@@ -12,7 +12,7 @@
 export const FEE_TYPES = [
   'rent', 'service', 'promo', 'multi_warehouse', 'multi_ad', 'fixed_spot', 'temp_spot',
   'water_post', 'elec_post', 'elec_pre', 'decor_mgmt', 'garbage', 'cert', 'parking',
-  'earnest', 'decor_deposit', 'guarantee', 'unclaimed', 'fire_water', 'other', 'coupon',
+  'earnest', 'decor_deposit', 'guarantee', 'unclaimed', 'fire_water', 'other', 'coupon', 'uone_collection',
 ] as const
 
 /** One of {@link FEE_TYPES}. */
@@ -55,11 +55,14 @@ export const FEE_RULES: Readonly<Record<FeeType, FeeRule>> = {
   unclaimed: { label: '暂收款', taxRate: 0, subject: '2203.01.05', subjectName: '预收账款_预收账款_商户_预收账款_暂收款' },
   fire_water: { label: '消防泄水费', taxRate: 0.06, subject: null, subjectName: null },
   other: { label: '其他', taxRate: 0.06, subject: null, subjectName: null },
+  uone_collection: { label: '代收款（UONE健身-6001）', taxRate: 0, subject: '2241.12', subjectName: '其他应付款_其他应付款_6001UONE健身房' },
   coupon: { label: '购券', taxRate: 0, subject: null, subjectName: null },
 }
 
 /** Output-VAT ledger accounts confirmed from the client's vouchers, keyed by rate. */
 export const OUTPUT_TAX_SUBJECTS: Readonly<Partial<Record<TaxRate, string>>> = {
+  0.03: '2221.01.02.03',
+  0.13: '2221.01.02.13',
   0.06: '2221.01.02.06',
   0.09: '2221.01.02.09',
 }
@@ -74,6 +77,7 @@ export const FEE_TYPE_BY_LABEL: ReadonlyMap<string, FeeType> = new Map(
  * Longer aliases are matched first by {@link feeTypeFromText}.
  */
 export const FEE_TYPE_ALIASES: ReadonlyArray<readonly [string, FeeType]> = [
+  ['代收款（UONE健身-6001）', 'uone_collection'], ['UONE代收款', 'uone_collection'],
   ['经营服务费', 'service'], ['服务费', 'service'], ['物业费', 'service'],
   ['宣传服务费', 'promo'], ['推广费', 'promo'], ['推广', 'promo'],
   ['后付电费', 'elec_post'], ['预付电费', 'elec_pre'], ['电费', 'elec_post'],

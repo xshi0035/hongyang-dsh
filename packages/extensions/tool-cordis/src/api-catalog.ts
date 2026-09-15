@@ -1131,9 +1131,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'config', description: 'the new validated configuration.' }],
       },
       {
-        signature: 'importFile(file: string, kind?: ImportKind): Promise<ImportOutcome>',
+        signature: 'async importFile(file: string, kind?: ImportKind, actor: ActivityActor = TOOL_ACTOR): Promise<ImportOutcome>',
         description: 'Import one client file; bank and platform statements also re-run settlement splitting.',
-        parameters: [{ name: 'file', description: 'absolute path.' }, { name: 'kind', description: 'explicit kind, or detected from the headers.' }],
+        parameters: [{ name: 'file', description: 'absolute path.' }, { name: 'kind', description: 'explicit kind, or detected from the headers.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'the import outcome.',
       },
       {
@@ -1143,9 +1143,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'matched and unmatched credits.',
       },
       {
-        signature: 'runClaims(): ClaimRunResult',
+        signature: 'runClaims(actor: ActivityActor = TOOL_ACTOR): ClaimRunResult',
         description: 'Run the claim engine over everything unbooked.',
-        parameters: [],
+        parameters: [{ name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'Automatic bookings and the remaining review queue.',
       },
       {
@@ -1155,21 +1155,21 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Pending receipts and POS rows needing merchant labels.',
       },
       {
-        signature: 'confirmClaim(itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin): ConfirmResult',
+        signature: 'confirmClaim( itemId: string, shopNo: string, splits: readonly Split[] | undefined, origin: AllocationOrigin, actor: ActivityActor = TOOL_ACTOR, ): ConfirmResult',
         description: 'Book one queued item to a shop.',
-        parameters: [{ name: 'itemId', description: '`txn:<id>` or `ptx:<id>`.' }, { name: 'shopNo', description: 'shop number; empty books suspense.' }, { name: 'splits', description: 'explicit splits in cents.' }, { name: 'origin', description: 'who confirmed.' }],
+        parameters: [{ name: 'itemId', description: '`txn:<id>` or `ptx:<id>`.' }, { name: 'shopNo', description: 'shop number; empty books suspense.' }, { name: 'splits', description: 'explicit splits in cents.' }, { name: 'origin', description: 'who confirmed.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'Booked allocations and payer-mapping status.',
       },
       {
-        signature: 'learnPayer(payerName: string, shopNo: string): Merchant',
+        signature: 'learnPayer(payerName: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): Merchant',
         description: 'Remember a payer → shop mapping.',
-        parameters: [{ name: 'payerName', description: 'Payer name matched exactly.' }, { name: 'shopNo', description: 'Selected shop number.' }],
+        parameters: [{ name: 'payerName', description: 'Payer name matched exactly.' }, { name: 'shopNo', description: 'Selected shop number.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'The merchant associated with the stored mapping.',
       },
       {
-        signature: 'buildDailyReport(date: string): DailyReport',
+        signature: 'buildDailyReport(date: string, actor: ActivityActor = TOOL_ACTOR): DailyReport',
         description: 'Build one day\'s income report from allocations.',
-        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }],
+        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'Daily report rows and integer-cent totals.',
       },
       {
@@ -1185,10 +1185,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Matched rows and discrepancies within the configured tolerance.',
       },
       {
-        signature: 'buildVoucher(date: string): VoucherBuild',
+        signature: 'buildVoucher(date: string, actor: ActivityActor = TOOL_ACTOR, receiptIds?: readonly string[]): VoucherBuild',
         description: 'Build a voucher proposal without saving a formal voucher.',
-        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }],
+        parameters: [{ name: 'date', description: 'Receipt date in YYYY-MM-DD form.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }, { name: 'receiptIds', description: 'Explicit selection to save as a durable draft; omitted for full-day diagnostics.' }],
         returns: 'Proposed voucher lines and validation findings.',
+      },
+      {
+        signature: 'voucherQueue(date: string): VoucherQueue',
+        description: 'Read full-day voucher coverage and unselected receipts.',
+        parameters: [{ name: 'date', description: 'Reporting day.' }],
+        returns: 'Allocated, drafted and unclaimed coverage.',
       },
       {
         signature: 'receivableSummary(): ReceivableSummary',
@@ -1221,9 +1227,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Merchant candidates, summary, and amount/fee readiness.',
       },
       {
-        signature: 'confirmPayment(text: string, shopNo: string): RegisterResult',
+        signature: 'confirmPayment(text: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult',
         description: 'Validate an offered merchant and register the draft payment.',
-        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }, { name: 'shopNo', description: 'Selected shop number.' }],
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }, { name: 'shopNo', description: 'Selected shop number.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'Saved receipt and allocation status; invalid selection throws.',
       },
       {
@@ -1233,16 +1239,52 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Parsed amount, date, merchant, fee, and reference.',
       },
       {
-        signature: 'registerPayment(text: string): RegisterResult',
+        signature: 'registerPayment(text: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult',
         description: 'Parse and save a payment, allocating when merchant and fee resolve.',
-        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }],
+        parameters: [{ name: 'text', description: 'User payment text or accumulated conversation draft.' }, { name: 'actor', description: 'Who performed the operation; recorded in the audit trail.' }],
         returns: 'Saved receipt and allocation status.',
       },
       {
-        signature: 'registerPaymentFromImage(extraction: PaymentImageExtraction): RegisterResult',
-        description: 'Validate screenshot fields and register through the shared provider.',
-        parameters: [{ name: 'extraction', description: 'untrusted vision extraction, validated again before writes.' }],
-        returns: 'committed receipt or pending allocation; invalid evidence throws without writing.',
+        signature: 'previewPaymentImage(extraction: PaymentImageExtraction, text: string): PaymentPreview',
+        description: 'Preview validated screenshot fields without writing a payment.',
+        parameters: [{ name: 'extraction', description: 'Untrusted screenshot fields.' }, { name: 'text', description: 'Accumulated user hints.' }],
+        returns: 'Candidate amount, merchants and readiness for confirmation.',
+      },
+      {
+        signature: 'confirmPaymentImage(extraction: PaymentImageExtraction, text: string, shopNo: string, actor: ActivityActor = TOOL_ACTOR): RegisterResult',
+        description: 'Revalidate screenshot evidence and commit a user-selected shop.',
+        parameters: [{ name: 'extraction', description: 'Original screenshot fields.' }, { name: 'text', description: 'Accumulated user hints.' }, { name: 'shopNo', description: 'Exact candidate selected by the user.' }, { name: 'actor', description: 'Operator recorded in the audit trail.' }],
+        returns: 'Committed registration; invalid drafts throw without writing.',
+      },
+      {
+        signature: 'registerPaymentFromImage(extraction: PaymentImageExtraction, actor: ActivityActor = TOOL_ACTOR): RegisterResult',
+        description: 'Validate and register screenshot evidence directly.',
+        parameters: [{ name: 'extraction', description: 'Untrusted screenshot fields.' }, { name: 'actor', description: 'Operator recorded in the audit trail.' }],
+        returns: 'Saved receipt or pending allocation.',
+      },
+      {
+        signature: 'submitPayment(input: PaymentSubmissionInput): PaymentSubmission',
+        description: 'Submit a DingTalk draft for workbench review without booking money.',
+        parameters: [{ name: 'input', description: 'Stable draft id, selected shop, and original evidence.' }],
+        returns: 'Durable submission awaiting a workbench decision.',
+      },
+      {
+        signature: 'registerTodoProvider(provider: WorkbenchTodoProvider): () => void',
+        description: 'Contribute a to-do counter to the workbench, for example drafts another transport holds.',
+        parameters: [{ name: 'provider', description: 'Stable id, label, and a counter read on every workbench request.' }],
+        returns: 'Disposer removing the counter.',
+      },
+      {
+        signature: 'activity(day: string = localDay()): ActivityEntry[]',
+        description: 'The audit trail of one local day, newest first.',
+        parameters: [{ name: 'day', description: '`YYYY-MM-DD`; defaults to today in the finance time zone.' }],
+        returns: 'Recorded operations.',
+      },
+      {
+        signature: 'workbench(date: string = localDay()): WorkbenchSummary',
+        description: 'Everything the workbench page shows for one local day.',
+        parameters: [{ name: 'date', description: '`YYYY-MM-DD`; defaults to today in the finance time zone.' }],
+        returns: 'Receipts, registrations, to-dos, and the audit trail.',
       },
       {
         signature: 'merchants(): Merchant[]',
@@ -3717,6 +3759,22 @@ export const EVENT_API: readonly EventApiEntry[] = [
 /** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name. */
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
+    name: 'ActivityAction',
+    declaration: 'export type ActivityAction = \'register_payment\' | \'confirm_payment\' | \'confirm_claim\' | \'run_claims\' | \'learn_payer\' | \'build_report\' | \'correct_allocation\' | \'withdraw_voucher\' | \'build_voucher\' | \'import_file\' | \'submit_payment\' | \'approve_payment\' | \'reject_payment\' | \'reverse_payment\';',
+  },
+  {
+    name: 'ActivityActor',
+    declaration: 'export interface ActivityActor {\n    readonly kind: \'web\' | \'dingtalk\' | \'tool\' | \'import\' | \'engine\';\n    readonly id: string;\n}',
+  },
+  {
+    name: 'ActivityEntry',
+    declaration: 'export interface ActivityEntry {\n    readonly id: ActivityId;\n    readonly at: string;\n    readonly day: string;\n    readonly actor: ActivityActor;\n    readonly action: ActivityAction;\n    readonly target: string;\n    readonly amount: number | undefined;\n    readonly detail: string;\n}',
+  },
+  {
+    name: 'ActivityId',
+    declaration: 'export type ActivityId = Branded<\'ActivityId\'>;',
+  },
+  {
     name: 'AdapterRegistrationHandle',
     declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
   },
@@ -4993,6 +5051,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PaymentPreview {\n    candidates: {\n        shopNo: string;\n        name: string;\n        brand: string;\n    }[];\n    summary: string;\n    ready: boolean;\n}',
   },
   {
+    name: 'PaymentSubmission',
+    declaration: 'export interface PaymentSubmission {\n    id: PaymentSubmissionId;\n    submittedAt: string;\n    shopNo: string;\n    merchantName: string;\n    summary: string;\n    text: string;\n    image: PaymentImageExtraction | undefined;\n    paymentDate: string;\n    status: \'pending\' | \'approved\' | \'rejected\';\n    transactionId: TransactionId | undefined;\n    duplicateMessage: string | undefined;\n}',
+  },
+  {
+    name: 'PaymentSubmissionId',
+    declaration: 'export type PaymentSubmissionId = Branded<\'PaymentSubmissionId\'>;',
+  },
+  {
+    name: 'PaymentSubmissionInput',
+    declaration: 'export interface PaymentSubmissionInput {\n    draftId: string;\n    text: string;\n    shopNo: string;\n    submitter: string;\n    image?: PaymentImageExtraction | undefined;\n}',
+  },
+  {
     name: 'PendingItem',
     declaration: 'export interface PendingItem {\n    readonly itemId: string;\n    readonly kind: \'bank\' | \'pos\';\n    readonly date: string;\n    readonly source: Transaction[\'source\'];\n    readonly amount: number;\n    readonly payerName: string;\n    readonly remark: string;\n    readonly suggestions: readonly Suggestion[];\n}',
   },
@@ -5190,7 +5260,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ReportRow',
-    declaration: 'export interface ReportRow {\n    readonly seq: number;\n    readonly date: string;\n    readonly shopNo: string;\n    readonly merchantName: string;\n    readonly brand: string;\n    readonly subtotal: number;\n    readonly source: Source;\n    readonly periodStart: string | undefined;\n    readonly periodEnd: string | undefined;\n    readonly amounts: Partial<Record<FeeType, number>>;\n    readonly remark: string;\n    readonly key: string;\n}',
+    declaration: 'export interface ReportRow {\n    readonly receiptId: string;\n    readonly cashAccount: \'bank\' | \'pos\';\n    readonly seq: number;\n    readonly date: string;\n    readonly shopNo: string;\n    readonly merchantName: string;\n    readonly brand: string;\n    readonly subtotal: number;\n    readonly source: Source;\n    readonly periodStart: string | undefined;\n    readonly periodEnd: string | undefined;\n    readonly amounts: Partial<Record<FeeType, number>>;\n    readonly remark: string;\n    readonly key: string;\n}',
   },
   {
     name: 'RequestContext',
@@ -6586,7 +6656,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'VoucherBuild',
-    declaration: 'export interface VoucherBuild {\n    id: VoucherId;\n    date: string;\n    lines: VoucherLine[];\n    checks: {\n        balanced: boolean;\n        warnings: string[];\n    };\n}',
+    declaration: 'export interface VoucherBuild {\n    id: VoucherId;\n    date: string;\n    lines: VoucherLine[];\n    receiptIds: string[];\n    coverage: VoucherCoverage;\n    checks: {\n        balanced: boolean;\n        warnings: string[];\n    };\n}',
+  },
+  {
+    name: 'VoucherCoverage',
+    declaration: 'export interface VoucherCoverage {\n    totalCount: number;\n    totalAmount: number;\n    selectedCount: number;\n    selectedAmount: number;\n    remainingCount: number;\n    remainingAmount: number;\n}',
   },
   {
     name: 'VoucherId',
@@ -6595,6 +6669,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'VoucherLine',
     declaration: 'export interface VoucherLine {\n    date: string;\n    voucherNo: number;\n    lineNo: number;\n    summary: string;\n    subject: string;\n    subjectName: string;\n    debit: number;\n    credit: number;\n    warning?: string;\n}',
+  },
+  {
+    name: 'VoucherQueue',
+    declaration: 'export interface VoucherQueue {\n    date: string;\n    receipts: VoucherReceipt[];\n    allocatedAmount: number;\n    draftedCount: number;\n    draftedAmount: number;\n    pendingCount: number;\n    pendingAmount: number;\n    unclaimedCount: number;\n    unclaimedAmount: number;\n}',
+  },
+  {
+    name: 'VoucherReceipt',
+    declaration: 'export interface VoucherReceipt extends ReportRow {\n    voucherId: string | undefined;\n}',
   },
   {
     name: 'WebBootBatch',
@@ -6703,6 +6785,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebUpgradeRoute',
     declaration: 'export interface WebUpgradeRoute {\n    path: string;\n    handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>;\n}',
+  },
+  {
+    name: 'WorkbenchRegistration',
+    declaration: 'export interface WorkbenchRegistration {\n    readonly at: string;\n    readonly source: string;\n    readonly shopNo: string;\n    readonly merchantName: string;\n    readonly fee: string;\n    readonly cents: number;\n    readonly origin: AllocationOrigin | \'pending\';\n    readonly status: string;\n    readonly transactionId: string;\n}',
+  },
+  {
+    name: 'WorkbenchSummary',
+    declaration: 'export interface WorkbenchSummary {\n    readonly voucherQueue: VoucherQueue;\n    readonly pendingReviews: readonly PaymentSubmission[];\n    readonly date: string;\n    readonly receipts: readonly ReceiptToday[];\n    readonly registrations: readonly WorkbenchRegistration[];\n    readonly registrationTotal: {\n        readonly count: number;\n        readonly cents: number;\n    };\n    readonly todos: {\n        readonly pendingClaims: number;\n        readonly pendingClaimsCents: number;\n        readonly unlabelledPos: number;\n        readonly overdueMerchants: number;\n        readonly overdueCents: number;\n        readonly reportBuilt: boolean;\n        readonly voucherBuilt: boolean;\n        readonly extra: readonly WorkbenchTodoSource[];\n    };\n    readonly activity: readonly ActivityEntry[];\n}',
+  },
+  {
+    name: 'WorkbenchTodoProvider',
+    declaration: 'export interface WorkbenchTodoProvider {\n    readonly id: string;\n    readonly label: string;\n    count(): number;\n}',
+  },
+  {
+    name: 'WorkbenchTodoSource',
+    declaration: 'export interface WorkbenchTodoSource {\n    readonly id: string;\n    readonly label: string;\n    readonly count: number;\n}',
   },
   {
     name: 'WorkflowAgentEndInfo',

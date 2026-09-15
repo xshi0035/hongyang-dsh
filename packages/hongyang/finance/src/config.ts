@@ -6,6 +6,7 @@
  * @module @deepseek-ai/dsh-hy-finance/config
  */
 
+import { OUTPUT_TAX_SUBJECTS } from './rules/fee-types.ts'
 import z from '@deepseek-ai/schemastery'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 
@@ -53,8 +54,8 @@ export function resolveConfig(config: Config): ResolvedConfig {
     dbPath: config.dbPath.trim().length > 0 ? config.dbPath : dshHomePath('hongyang', 'finance.db'),
     autoOpenCards: config.autoOpenCards,
     compareToleranceCents: config.compareToleranceCents,
-    outputTaxSubject13: config.outputTaxSubject13,
-    outputTaxSubject3: config.outputTaxSubject3,
+    outputTaxSubject13: config.outputTaxSubject13.trim() || OUTPUT_TAX_SUBJECTS[0.13] || '',
+    outputTaxSubject3: config.outputTaxSubject3.trim() || OUTPUT_TAX_SUBJECTS[0.03] || '',
     companyName: config.companyName,
   }
 }

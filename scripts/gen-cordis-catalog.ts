@@ -246,6 +246,10 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  ActivityActor: 'hongyang.md',
+  ActivityEntry: 'hongyang.md',
+  WorkbenchSummary: 'hongyang.md',
+  WorkbenchTodoProvider: 'hongyang.md',
   AllocationOrigin: 'hongyang.md',
   ClaimRunResult: 'hongyang.md',
   CompareResult: 'hongyang.md',
@@ -261,6 +265,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ParsedPayment: 'hongyang.md',
   PaymentImageExtraction: 'hongyang.md',
   PaymentPreview: 'hongyang.md',
+  PaymentSubmissionInput: 'hongyang.md',
+  PaymentSubmission: 'hongyang.md',
   PendingItem: 'hongyang.md',
   ReceivableSummary: 'hongyang.md',
   ReceiptToday: 'hongyang.md',
@@ -269,6 +275,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SplitResult: 'hongyang.md',
   UnlabelledPos: 'hongyang.md',
   VoucherBuild: 'hongyang.md',
+  VoucherQueue: 'hongyang.md',
+  VoucherReceipt: 'hongyang.md',
+  VoucherCoverage: 'hongyang.md',
   Agent: 'core.md',
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',

@@ -51,7 +51,7 @@ export function toYuan(cents: Cents): number {
  */
 export function taxOf(inclusiveCents: Cents, rate: TaxRate): Cents {
   if (rate === 0) return 0
-  return Math.round(inclusiveCents / (1 + rate) * rate)
+  return Math.sign(inclusiveCents) * Math.round(Math.abs(inclusiveCents) / (1 + rate) * rate)
 }
 
 /** Tax split of one allocation line. */
