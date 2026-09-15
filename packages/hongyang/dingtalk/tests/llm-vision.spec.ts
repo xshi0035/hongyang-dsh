@@ -1,11 +1,10 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { FinishReason, GenerateOptions } from '@deepseek-ai/dsh-llm'
+import { expect, it } from 'vitest'
 import { createDingtalkLlmVisionClient } from '../src/llm-vision.ts'
 import { extractPaymentFromImage } from '../src/vision.ts'
 
-await test('host vision preserves image content and rejects incomplete terminal responses', async () => {
+it('host vision preserves image content and rejects incomplete terminal responses', async () => {
   let observed: GenerateOptions | undefined
   const fixture = { amountText: '500元', payee: '测试公司', paymentDate: '2026-04-03' }
   const terminalReasons: Array<FinishReason | undefined> = [
@@ -17,8 +16,8 @@ await test('host vision preserves image content and rejects incomplete terminal 
     const client = createDingtalkLlmVisionClient({
       attachments: {
         saveImage(input) {
-          assert.equal(input.mediaType, 'image/png')
-          assert.equal(Buffer.from(input.data).toString('hex'), '010203')
+          expect(input.mediaType).toBe('image/png')
+          expect(Buffer.from(input.data).toString('hex')).toBe('010203')
           return Promise.resolve({
             attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`), mediaType: 'image/png', bytes: 3, width: 1, height: 1,
           })
@@ -33,9 +32,9 @@ await test('host vision preserves image content and rejects incomplete terminal 
       },
     }, { provider: 'test', model: 'vision' })
     const result = extractPaymentFromImage(client, { imageDataUrl: 'data:image/png;base64,AQID', textHint: '测试商户' })
-    if (terminal?.kind === 'stop') assert.deepEqual(await result, fixture)
-    else await assert.rejects(result, /未正常完成/)
-    assert.equal(observed?.provider, 'test')
-    assert.equal(observed?.messages[0]?.content[1]?.type, 'image')
+    if (terminal?.kind === 'stop') expect(await result).toEqual(fixture)
+    else await expect(result).rejects.toThrow(/未正常完成/)
+    expect(observed?.provider).toBe('test')
+    expect(observed?.messages[0]?.content[1]?.type).toBe('image')
   }
 })

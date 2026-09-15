@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { expect, it } from 'vitest'
 import { openFinanceDatabase } from '../src/provider/db/schema.ts'
 import { merchantBalance, overdue, receivableSummary, todayReceipts } from '../src/provider/query/dashboard.ts'
 
-await test('query provider calculates open receivable from provider allocations', async () => {
+it('query provider calculates open receivable from provider allocations', async () => {
   const db = await openFinanceDatabase(':memory:')
   try {
     db.exec(`INSERT INTO merchant (id,shop_no,name,brand) VALUES ('m','101','测试商户','测试品牌');
@@ -11,9 +10,9 @@ await test('query provider calculates open receivable from provider allocations'
       INSERT INTO "transaction" (id,source,channel,txn_time,amount,status) VALUES ('t','bank2038','transfer','2026-04-03',4000,'manual');
       INSERT INTO allocation (id,transaction_id,merchant_id,receivable_id,fee_type,amount_incl_tax,tax_rate,tax_amount,origin,created_at)
       VALUES ('a','t','m','r','rent',4000,0.09,330,'user','2026-04-03');`)
-    assert.equal(receivableSummary(db).openCents, 6000)
-    assert.equal(merchantBalance(db, '测试品牌')[0]?.byFee[0]?.cents, 6000)
-    assert.equal(overdue(db, 30, '2026-06-01')[0]?.oldestDueDate, '2026-04-30')
-    assert.equal(todayReceipts(db, '2026-04-03')[0]?.cents, 4000)
+    expect(receivableSummary(db).openCents).toBe(6000)
+    expect(merchantBalance(db, '测试品牌')[0]?.byFee[0]?.cents).toBe(6000)
+    expect(overdue(db, 30, '2026-06-01')[0]?.oldestDueDate).toBe('2026-04-30')
+    expect(todayReceipts(db, '2026-04-03')[0]?.cents).toBe(4000)
   } finally { db.close() }
 })
