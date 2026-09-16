@@ -103,7 +103,7 @@ function Reviews(props: { refresh: () => void; t: Translate; data: WorkbenchWire
                 <details><summary>{t('evidence')}</summary><p className={css.evidence}>{row.text}</p>
                   {row.transactionNo === '' ? null : <p>{t('transactionNo')} {row.transactionNo}</p>}
                 </details>
-                <PaymentAllocationEditor id={row.id} t={t} refresh={props.refresh}
+                <PaymentAllocationEditor id={row.id} t={t} refresh={props.refresh} approve={() => { review(row.id, 'approve') }}
                   disabled={reviewing !== undefined || row.duplicateMessage !== undefined} />
               </div>
               <div className={css.reviewActions}>

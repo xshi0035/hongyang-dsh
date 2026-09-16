@@ -220,7 +220,7 @@ export const reportEn: Record<ReportCardKey, string> = {
 
 /** Keys the workbench panel renders. */
 export type WorkbenchKey =
-  | 'editAllocation' | 'allocationTotal' | 'allocationSplitTotal' | 'allocationReason' | 'periodStart' | 'periodEnd' | 'removeSplit' | 'addSplit' | 'approveAllocation' | 'reversalTitle' | 'reversalHelp' | 'reversalEmpty' | 'reversed' | 'reversalDraftBlocked' | 'reversePayment' | 'reversalSelected' | 'reversalDate' | 'reversalReason' | 'confirmReversal' | 'cancelReversal' | 'actionReversePayment'
+  | 'editAllocation' | 'cancelAllocation' | 'allocationTotal' | 'allocationSplitTotal' | 'allocationReason' | 'periodStart' | 'periodEnd' | 'removeSplit' | 'addSplit' | 'approveAllocation' | 'reversalTitle' | 'reversalHelp' | 'reversalEmpty' | 'reversed' | 'reversalDraftBlocked' | 'reversePayment' | 'reversalSelected' | 'reversalDate' | 'reversalReason' | 'confirmReversal' | 'cancelReversal' | 'actionReversePayment'
   | 'voucherWithdraw' | 'voucherWithdrawReason' | 'actionWithdrawVoucher'
   | 'voucherQueue' | 'voucherAllocated' | 'voucherDrafted' | 'voucherPending' | 'voucherUnclaimed' | 'voucherHelp' | 'voucherResult' | 'voucherMatched' | 'voucherDiffs' | 'voucherDownload' | 'voucherSelect' | 'voucherBuildSelected' | 'actionCorrectAllocation'
   | 'reviews' | 'reviewsHelp' | 'reviewsEmpty' | 'approve' | 'reject' | 'reviewBusy' | 'reviewFailed'
@@ -246,7 +246,8 @@ export const WORKBENCH_NS = 'hyFinance.workbench'
  * Chinese workbench copy.
  */
 export const workbenchZh: Record<WorkbenchKey, string> = {
-  editAllocation: '核对费项并入账',
+  editAllocation: '调整分配',
+  cancelAllocation: '取消调整，返回原信息',
   allocationTotal: '原付款金额',
   allocationSplitTotal: '分配合计',
   allocationReason: '分配依据',
@@ -357,7 +358,8 @@ export const workbenchZh: Record<WorkbenchKey, string> = {
  * English workbench copy.
  */
 export const workbenchEn: Record<WorkbenchKey, string> = {
-  editAllocation: 'Review fees and book',
+  editAllocation: 'Adjust allocation',
+  cancelAllocation: 'Discard adjustments',
   allocationTotal: 'Original payment',
   allocationSplitTotal: 'Allocated total',
   allocationReason: 'Allocation reason',

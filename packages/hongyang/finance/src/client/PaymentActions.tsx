@@ -18,10 +18,10 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return value
 }
 
-/** Edit a pending submission's split before committing one approval.
+/** Approve original details or explicitly edit a pending submission's split.
  * @param props - Submission identity, locale and refresh callback.
  */
-export function PaymentAllocationEditor(props: { id: string; t: Translate; refresh: () => void; disabled: boolean }) {
+export function PaymentAllocationEditor(props: { id: string; t: Translate; refresh: () => void; approve: () => void; disabled: boolean }) {
   const { t } = props
   const [data, setData] = useState<ReviewDetailsWire>()
   const [splits, setSplits] = useState<SplitInput[]>([])
@@ -39,10 +39,12 @@ export function PaymentAllocationEditor(props: { id: string; t: Translate; refre
   const total = splits.reduce((sum, row) => sum + Math.round(Number(row.amount) * 100), 0)
   const valid = data !== undefined && validAmount && total === data.amount && reason.trim() !== ''
   return <div>
+    {data === undefined ? <Button size="sm" disabled={busy || props.disabled} onClick={props.approve}>{t('approve')}</Button> : null}
     <Button size="sm" disabled={busy || props.disabled} onClick={() => { void run(async () => {
+      if (data !== undefined) { setData(undefined); setSplits([]); setReason(''); return }
       const loaded = await request<ReviewDetailsWire>(`/payment/details?id=${encodeURIComponent(props.id)}`)
       setData(loaded); setSplits(loaded.splits.map(row => ({ feeType: row.feeType, amount: (row.amount / 100).toFixed(2), start: '', end: '' })))
-    }) }}>{t('editAllocation')}</Button>
+    }) }}>{t(data === undefined ? 'editAllocation' : 'cancelAllocation')}</Button>
     {error === '' ? null : <p role="alert">{error}</p>}
     {data === undefined ? null : <div>
       <p>{t('allocationTotal')} {(data.amount / 100).toFixed(2)} · {t('allocationSplitTotal')} {Number.isFinite(total) ? (total / 100).toFixed(2) : '—'}</p>
